@@ -14,12 +14,12 @@ import tensorrt as trt
 import pycuda.driver as cuda
 
 
-try:
-    ctypes.cdll.LoadLibrary('./plugins/libyolo_layer.so')
-except OSError as e:
-    raise SystemExit('ERROR: failed to load ./plugins/libyolo_layer.so.  '
-                     'Did you forget to do a "make" in the "./plugins/" '
-                     'subdirectory?') from e
+# try:
+#     ctypes.cdll.LoadLibrary('./plugins/libyolo_layer.so')
+# except OSError as e:
+#     raise SystemExit('ERROR: failed to load ./plugins/libyolo_layer.so.  '
+#                      'Did you forget to do a "make" in the "./plugins/" '
+#                      'subdirectory?') from e
 
 
 def _preprocess_yolo(img, input_shape, letter_box=False):
@@ -39,10 +39,12 @@ def _preprocess_yolo(img, input_shape, letter_box=False):
         new_h, new_w = input_shape[0], input_shape[1]
         offset_h, offset_w = 0, 0
         if (new_w / img_w) <= (new_h / img_h):
-            new_h = int(img_h * new_w / img_w)
+            ratio = new_w / img_w
+            new_h = int(img_h * ratio)
             offset_h = (input_shape[0] - new_h) // 2
         else:
-            new_w = int(img_w * new_h / img_h)
+            ratio = new_h / img_h
+            new_w = int(img_w * ratio)
             offset_w = (input_shape[1] - new_w) // 2
         resized = cv2.resize(img, (new_w, new_h))
         img = np.full((input_shape[0], input_shape[1], 3), 127, dtype=np.uint8)
@@ -97,7 +99,7 @@ def _nms_boxes(detections, nms_threshold):
     return keep
 
 
-def _postprocess_yolo(trt_outputs, img_w, img_h, conf_th, nms_threshold,
+def _postprocess_yolo(trt_outputs, category_num, img_w, img_h, conf_th, nms_threshold,
                       input_shape, letter_box=False):
     """Postprocess TensorRT outputs.
 
@@ -112,12 +114,26 @@ def _postprocess_yolo(trt_outputs, img_w, img_h, conf_th, nms_threshold,
         boxes, scores, classes (after NMS)
     """
     # filter low-conf detections and concatenate results of all yolo layers
-    detections = []
+    # detections = []
     for o in trt_outputs:
-        dets = o.reshape((-1, 7))
-        dets = dets[dets[:, 4] * dets[:, 6] >= conf_th]
-        detections.append(dets)
-    detections = np.concatenate(detections, axis=0)
+        dets = o.reshape((category_num + 4, -1))
+        dets = dets.transpose(1, 0)
+        scores = dets[:, 4:].max(axis=1)
+        classes = dets[:, 4:].argmax(axis=1)
+
+        dets = dets[:, :4]
+
+        probabilities = np.concatenate(
+            (dets, 
+            scores.reshape((scores.shape[0], 1)), 
+            classes.reshape((scores.shape[0], 1)), 
+            np.ones((scores.shape[0], 1))), 
+            axis=1)
+        # print("Probs ", (probabilities[:, 4] > conf_th).shape)
+        probabilities = probabilities[probabilities[:, 4] > conf_th]
+        # print("Probs2 ", probabilities.shape)
+    detections = probabilities #np.concatenate(probabilities, axis=0)
+    # print(detections.shape)
 
     if len(detections) == 0:
         boxes = np.zeros((0, 4), dtype=np.int)
@@ -137,7 +153,9 @@ def _postprocess_yolo(trt_outputs, img_w, img_h, conf_th, nms_threshold,
                 old_w = int(input_shape[1] * img_h / input_shape[0])
                 offset_w = (old_w - img_w) // 2
         detections[:, 0:4] *= np.array(
-            [old_w, old_h, old_w, old_h], dtype=np.float32)
+            [old_w / input_shape[0], old_h / input_shape[1], old_w / input_shape[0], old_h / input_shape[1]], dtype=np.float32)
+        detections[:, 0] -= detections[:, 2] / 2
+        detections[:, 1] -= detections[:, 3] / 2 
 
         # NMS
         nms_detections = np.zeros((0, 7), dtype=detections.dtype)
@@ -155,7 +173,7 @@ def _postprocess_yolo(trt_outputs, img_w, img_h, conf_th, nms_threshold,
             yy = yy - offset_h
         ww = nms_detections[:, 2].reshape(-1, 1)
         hh = nms_detections[:, 3].reshape(-1, 1)
-        boxes = np.concatenate([xx, yy, xx+ww, yy+hh], axis=1) + 0.5
+        boxes = np.concatenate([xx, yy, xx+ww, yy+hh], axis=1)
         boxes = boxes.astype(np.int)
         scores = nms_detections[:, 4] * nms_detections[:, 6]
         classes = nms_detections[:, 5]
@@ -328,7 +346,7 @@ class TrtYOLO(object):
             self.cuda_ctx.pop()
 
         boxes, scores, classes = _postprocess_yolo(
-            trt_outputs, img.shape[1], img.shape[0], conf_th,
+            trt_outputs, self.category_num, img.shape[1], img.shape[0], conf_th,
             nms_threshold=0.5, input_shape=self.input_shape,
             letter_box=letter_box)
 

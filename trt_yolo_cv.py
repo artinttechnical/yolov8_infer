@@ -18,6 +18,8 @@ from utils.yolo_classes import get_cls_dict
 from utils.visualization import BBoxVisualization
 from utils.yolo_with_plugins import TrtYOLO
 
+from pathlib import Path
+
 
 def parse_args():
     """Parse input arguments."""
@@ -56,17 +58,45 @@ def loop_and_detect(cap, trt_yolo, conf_th, vis, writer):
       vis: for visualization.
       writer: the VideoWriter object for the output video.
     """
-
+    ctr = 0
     while True:
         ret, frame = cap.read()
         if frame is None:  break
         boxes, confs, clss = trt_yolo.detect(frame, conf_th)
         frame = vis.draw_bboxes(frame, boxes, confs, clss)
+        cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
         writer.write(frame)
+        if ctr % 100 == 0:
+            print(ctr)
+        ctr += 1
         print('.', end='', flush=True)
 
     print('\nDone.')
 
+class MyCap:
+    def __init__(self, path: str):
+        self._path = Path(path)
+        self._counter = 1
+    
+    def get(self, param):
+        if param == 3:
+            return 2592
+        elif param == 4:
+            return 1944
+
+    def read(self):
+        target_file = self._path / f"image{self._counter:06}.jpg"
+        self._counter += 1
+        if target_file.exists():
+            return True, cv2.imread(str(target_file))
+        else:
+            return False, None
+
+    def isOpened(self):
+        return True
+
+    def release(self):
+        pass
 
 def main():
     args = parse_args()
@@ -76,6 +106,7 @@ def main():
         raise SystemExit('ERROR: file (yolo/%s.trt) not found!' % args.model)
 
     cap = cv2.VideoCapture(args.video)
+    # cap = MyCap(args.video)
     if not cap.isOpened():
         raise SystemExit('ERROR: failed to open the input video file!')
     frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
