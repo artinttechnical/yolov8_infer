@@ -59,11 +59,11 @@ def loop_and_detect(cap, trt_yolo, conf_th, writer):
       writer: the VideoWriter object for the output video.
     """
     ctr = 0
-    while True:
-        ret, frame = cap.read()
-        if frame is None:  break
+    while not trt_yolo.stop:
+        # ret, frame = cap.read()
+        # if frame is None:  break
         # boxes, confs, clss = trt_yolo.detect(frame, conf_th)
-        trt_yolo.detect(frame, conf_th)
+        trt_yolo.detect()
 
     print('\nDone.')
 
@@ -110,7 +110,7 @@ def main():
 
     cls_dict = get_cls_dict(args.category_num)
     vis = BBoxVisualization(cls_dict)
-    trt_yolo = TrtYOLO(args.model, args.category_num, args.letter_box, conf_th=0.3, visualizer=vis)
+    trt_yolo = TrtYOLO(args.model, args.category_num, args.letter_box, conf_th=0.3, visualizer=vis, capturer=cap)
 
     loop_and_detect(cap, trt_yolo, conf_th=0.3, writer=writer)
 

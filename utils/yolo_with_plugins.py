@@ -15,6 +15,7 @@ import pycuda.driver as cuda
 
 import queue
 import threading
+import time
 
 
 # try:
@@ -297,7 +298,7 @@ class TrtYOLO(object):
         with open(TRTbin, 'rb') as f, trt.Runtime(self.trt_logger) as runtime:
             return runtime.deserialize_cuda_engine(f.read())
 
-    def __init__(self, model, category_num=80, letter_box=False, cuda_ctx=None, conf_th=0.3, visualizer=None):
+    def __init__(self, model, category_num=80, letter_box=False, cuda_ctx=None, conf_th=0.3, visualizer=None, capturer=None):
         """Initialize TensorRT plugins, engine and conetxt."""
         self.model = model
         self.category_num = category_num
@@ -325,29 +326,55 @@ class TrtYOLO(object):
         self.conf_th = conf_th
         self.stop = False
         self.inference_queue = queue.Queue()
+        self.input_queue = queue.Queue()
         # self.input_queue = queue.Queue()
         # self.cuda_thread = threading.Thread(None, self.cuda_infer_fn)
         # self.cuda_thread.start()
         self.postprocess_thread = threading.Thread(None, self.postprocess)
         self.postprocess_thread.start()
 
+        self.cap = capturer
+        self.preprocess_thread = threading.Thread(None, self.read_and_preprocess)
+        self.preprocess_thread.start()
+
 
     def __del__(self):
         """Free CUDA memories."""
         self.stop = True
         self.postprocess_thread.join()
+        self.preprocess_thread.join()
 
         del self.outputs
         del self.inputs
         del self.stream
 
-    def detect(self, img, conf_th=0.3, letter_box=None):
-        """Detect objects in the input image."""
-        letter_box = self.letter_box if letter_box is None else letter_box
-        img_resized = _preprocess_yolo(img, self.input_shape, letter_box)
+    def read_and_preprocess(self):
+        while True:
+            start_time = time.time()
+            ret, frame = self.cap.read()
+            if frame is None:
+                while not self.input_queue.empty():
+                    pass
+                self.stop = True
+                return
 
+            """Detect objects in the input image."""
+            letter_box = self.letter_box # if letter_box is None else letter_box
+            img_resized = _preprocess_yolo(frame, self.input_shape, letter_box)
+            self.input_queue.put((frame, img_resized))
+            finish_time = time.time()
+            # print("Timings ", 1 / 30, finish_time - start_time)
+            if 1 / 30 > (finish_time - start_time):
+                time.sleep(1 / 30 - (finish_time - start_time))
+
+    def detect(self):
         # Set host input to the image. The do_inference() function
         # will copy the input to the GPU before executing.
+        active_len = self.input_queue.qsize()
+        for _ in range(active_len - 1):
+            self.input_queue.get()
+
+        img, img_resized = self.input_queue.get()
         self.inputs[0].host = np.ascontiguousarray(img_resized)
         if self.cuda_ctx:
             self.cuda_ctx.push()
