@@ -13,6 +13,9 @@ import cv2
 import tensorrt as trt
 import pycuda.driver as cuda
 
+import queue
+import threading
+
 
 # try:
 #     ctypes.cdll.LoadLibrary('./plugins/libyolo_layer.so')
@@ -294,14 +297,12 @@ class TrtYOLO(object):
         with open(TRTbin, 'rb') as f, trt.Runtime(self.trt_logger) as runtime:
             return runtime.deserialize_cuda_engine(f.read())
 
-    def __init__(self, model, category_num=80, letter_box=False, cuda_ctx=None):
+    def __init__(self, model, category_num=80, letter_box=False, cuda_ctx=None, conf_th=0.3, visualizer=None):
         """Initialize TensorRT plugins, engine and conetxt."""
         self.model = model
         self.category_num = category_num
         self.letter_box = letter_box
         self.cuda_ctx = cuda_ctx
-        if self.cuda_ctx:
-            self.cuda_ctx.push()
 
         self.inference_fn = do_inference if trt.__version__[0] < '7' \
                                          else do_inference_v2
@@ -320,8 +321,22 @@ class TrtYOLO(object):
             if self.cuda_ctx:
                 self.cuda_ctx.pop()
 
+        self.visualizer = visualizer
+        self.conf_th = conf_th
+        self.stop = False
+        self.inference_queue = queue.Queue()
+        # self.input_queue = queue.Queue()
+        # self.cuda_thread = threading.Thread(None, self.cuda_infer_fn)
+        # self.cuda_thread.start()
+        self.postprocess_thread = threading.Thread(None, self.postprocess)
+        self.postprocess_thread.start()
+
+
     def __del__(self):
         """Free CUDA memories."""
+        self.stop = True
+        self.postprocess_thread.join()
+
         del self.outputs
         del self.inputs
         del self.stream
@@ -345,12 +360,28 @@ class TrtYOLO(object):
         if self.cuda_ctx:
             self.cuda_ctx.pop()
 
-        boxes, scores, classes = _postprocess_yolo(
-            trt_outputs, self.category_num, img.shape[1], img.shape[0], conf_th,
-            nms_threshold=0.5, input_shape=self.input_shape,
-            letter_box=letter_box)
+        self.inference_queue.put((img, trt_outputs))
 
-        # clip x1, y1, x2, y2 within original image
-        boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]], 0, img.shape[1]-1)
-        boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, img.shape[0]-1)
-        return boxes, scores, classes
+
+    def postprocess(self):
+        ctr = 0
+        while not self.stop:
+            frame, trt_outputs = self.inference_queue.get()
+            boxes, scores, classes = _postprocess_yolo(
+                trt_outputs, self.category_num, frame.shape[1], frame.shape[0], self.conf_th,
+                nms_threshold=0.5, input_shape=self.input_shape,
+                letter_box=self.letter_box)
+
+            # clip x1, y1, x2, y2 within original image
+            boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]], 0, frame.shape[1]-1)
+            boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, frame.shape[0]-1)
+
+            frame = self.visualizer.draw_bboxes(frame, boxes, scores, classes)
+            cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
+            # writer.write(frame)
+            if ctr % 100 == 0:
+                print(ctr)
+            ctr += 1
+            print('.', end='', flush=True)
+
+        # return boxes, scores, classes

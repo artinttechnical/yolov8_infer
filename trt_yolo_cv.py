@@ -48,7 +48,7 @@ def parse_args():
     return args
 
 
-def loop_and_detect(cap, trt_yolo, conf_th, vis, writer):
+def loop_and_detect(cap, trt_yolo, conf_th, writer):
     """Continuously capture images from camera and do object detection.
 
     # Arguments
@@ -62,14 +62,8 @@ def loop_and_detect(cap, trt_yolo, conf_th, vis, writer):
     while True:
         ret, frame = cap.read()
         if frame is None:  break
-        boxes, confs, clss = trt_yolo.detect(frame, conf_th)
-        frame = vis.draw_bboxes(frame, boxes, confs, clss)
-        cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
-        writer.write(frame)
-        if ctr % 100 == 0:
-            print(ctr)
-        ctr += 1
-        print('.', end='', flush=True)
+        # boxes, confs, clss = trt_yolo.detect(frame, conf_th)
+        trt_yolo.detect(frame, conf_th)
 
     print('\nDone.')
 
@@ -105,8 +99,8 @@ def main():
     if not os.path.isfile('yolo/%s.trt' % args.model):
         raise SystemExit('ERROR: file (yolo/%s.trt) not found!' % args.model)
 
-    cap = cv2.VideoCapture(args.video)
-    # cap = MyCap(args.video)
+    # cap = cv2.VideoCapture(args.video)
+    cap = MyCap(args.video)
     if not cap.isOpened():
         raise SystemExit('ERROR: failed to open the input video file!')
     frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
@@ -116,9 +110,9 @@ def main():
 
     cls_dict = get_cls_dict(args.category_num)
     vis = BBoxVisualization(cls_dict)
-    trt_yolo = TrtYOLO(args.model, args.category_num, args.letter_box)
+    trt_yolo = TrtYOLO(args.model, args.category_num, args.letter_box, conf_th=0.3, visualizer=vis)
 
-    loop_and_detect(cap, trt_yolo, conf_th=0.3, vis=vis, writer=writer)
+    loop_and_detect(cap, trt_yolo, conf_th=0.3, writer=writer)
 
     writer.release()
     cap.release()
