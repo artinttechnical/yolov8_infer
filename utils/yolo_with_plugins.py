@@ -17,7 +17,6 @@ import queue
 import threading
 import time
 
-
 # try:
 #     ctypes.cdll.LoadLibrary('./plugins/libyolo_layer.so')
 # except OSError as e:
@@ -119,7 +118,9 @@ def _postprocess_yolo(trt_outputs, category_num, img_w, img_h, conf_th, nms_thre
     """
     # filter low-conf detections and concatenate results of all yolo layers
     # detections = []
-    for o in trt_outputs:
+    # for o in trt_outputs:
+    if True:
+        o = trt_outputs
         dets = o.reshape((category_num + 4, -1))
         dets = dets.transpose(1, 0)
         scores = dets[:, 4:].max(axis=1)
@@ -387,8 +388,7 @@ class TrtYOLO(object):
         if self.cuda_ctx:
             self.cuda_ctx.pop()
 
-        self.inference_queue.put((img, trt_outputs))
-
+        self.inference_queue.put((img, trt_outputs[0].copy()))
 
     def postprocess(self):
         ctr = 0
