@@ -101,4 +101,5 @@ def get_cls_dict(category_num):
     if category_num == 80:
         return {i: n for i, n in enumerate(COCO_CLASSES_LIST)}
     else:
-        return {i: 'CLS%d' % i for i in range(category_num)}
+        with open("labels.txt", "r") as f:
+            return {i: sign_name.strip() for i, sign_name in enumerate(f.readlines())}

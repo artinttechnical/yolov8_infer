@@ -90,13 +90,69 @@ class BBoxVisualization():
 
     def draw_bboxes(self, img, boxes, confs, clss):
         """Draw detected bounding boxes on the original image."""
-        for bb, cf, cl in zip(boxes, confs, clss):
+        sign_images = []
+        widths = 0
+        height = 0
+        ORIG_IMAGE_FRACTION = 8
+
+        for sep_clss in clss:
+            # sign_image = cv2.imread(f"sign_images/RU_road_sign_{self.cls_dict[sep_clss]}.svg.png", cv2.IMREAD_UNCHANGED)
+            sign_image = cv2.imread(f"sign_images/RU_road_sign_{self.cls_dict[sep_clss]}.svg.png")
+            ratio = sign_image.shape[1] / (img.shape[1] / ORIG_IMAGE_FRACTION)
+            sign_images.append(
+              cv2.resize(
+                sign_image, 
+                (
+                  int(sign_image.shape[1] / ratio), 
+                  int(sign_image.shape[0] / ratio))))
+            height = max(height, sign_images[-1].shape[0])
+            widths += sign_images[-1].shape[1] + 20
+        widths -= 20
+            
+        cur_sign_x = img.shape[1] / 2 - widths / 2
+        sign_top = img.shape[0] - height - 10
+        for bb, cf, cl, sign_image in zip(boxes, confs, clss, sign_images):
             cl = int(cl)
             x_min, y_min, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
             color = self.colors[cl]
             cv2.rectangle(img, (x_min, y_min), (x_max, y_max), color, 2)
-            txt_loc = (max(x_min+2, 0), max(y_min+2, 0))
+            # txt_loc = (max(x_min+2, 0), max(y_min+2, 0))
             cls_name = self.cls_dict.get(cl, 'CLS{}'.format(cl))
-            txt = '{} {:.2f}'.format(cls_name, cf)
-            img = draw_boxed_text(img, txt, txt_loc, color)
+            # txt = '{} {:.2f}'.format(cls_name, cf)
+
+            line_src = x_max if x_max < img.shape[1] / 2 else x_min
+            
+            cv2.line(img, (line_src, y_max), (int(cur_sign_x + sign_image.shape[1] / 2), sign_top), color, 2)
+            cv2.rectangle(
+              img, 
+              (int(cur_sign_x) - 2, sign_top - 2), 
+              (int(cur_sign_x) + sign_image.shape[1] + 2, sign_top + sign_image.shape[0] + 2), 
+              color, 2)
+
+
+            if False:
+              alpha_s = sign_image[:, :, 3] / 255.0
+              alpha_l = 1.0 - alpha_s
+
+              for channel in range(img.shape[2] - 1):
+                  print(img.shape, channel, alpha_l.shape)
+                  replaced_piece = img[
+                    sign_top:sign_top + sign_image.shape[0], 
+                    int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1], 
+                    channel].astype(np.float)
+                  replaced_piece *= alpha_l
+                  alpha_correction = alpha_s * sign_image[:,:,channel]
+                  replaced_piece += alpha_correction
+                  img[
+                    sign_top:sign_top + sign_image.shape[0], 
+                    int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1], 
+                    channel] = (replaced_piece * 255).astype(np.uint8)
+            else:
+              img[
+                  sign_top:sign_top + sign_image.shape[0], 
+                  int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1]] = sign_image
+
+            cur_sign_x += sign_image.shape[1] + 20
+          
+            # img = draw_boxed_text(img, txt, txt_loc, color)
         return img
