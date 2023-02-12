@@ -21,6 +21,8 @@ from utils.yolo_with_plugins import TrtYOLO
 from pathlib import Path
 
 
+import time
+
 def parse_args():
     """Parse input arguments."""
     desc = ('Run the TensorRT optimized object detecion model on an input '
@@ -74,12 +76,13 @@ class MyCap:
     
     def get(self, param):
         if param == 3:
-            return 2592
+            # return 2592
+            return 640 * 2
         elif param == 4:
-            return 1944
+            return 480 * 2
 
     def read(self):
-        target_file = self._path / f"image{self._counter:06}.jpg"
+        target_file = self._path / f"image009260F_{self._counter:04}.jpg"
         self._counter += 1
         if target_file.exists():
             return True, cv2.imread(str(target_file))
@@ -112,7 +115,11 @@ def main():
     vis = BBoxVisualization(cls_dict)
     trt_yolo = TrtYOLO(args.model, args.category_num, args.letter_box, conf_th=0.3, visualizer=vis, capturer=cap)
 
+    total_start_time = time.time()
     loop_and_detect(cap, trt_yolo, conf_th=0.3, writer=writer)
+    total_end_time = time.time()
+
+    print("Total FPS ", 1800 / (total_end_time - total_start_time))
 
     writer.release()
     cap.release()
