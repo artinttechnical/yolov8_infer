@@ -355,8 +355,6 @@ class TrtYOLO(object):
             start_time = time.time()
             ret, frame = self.cap.read()
             if frame is None:
-                while not self.input_queue.empty():
-                    pass
                 self.stop = True
                 return
 
@@ -376,6 +374,9 @@ class TrtYOLO(object):
         for _ in range(active_len - 1):
             self.input_queue.get()
 
+        if active_len == 0 and self.stop:
+            return
+
         img, img_resized = self.input_queue.get()
         self.inputs[0].host = np.ascontiguousarray(img_resized)
         if self.cuda_ctx:
@@ -393,7 +394,7 @@ class TrtYOLO(object):
 
     def postprocess(self):
         ctr = 0
-        while not self.stop:
+        while True:
             if ctr % 100 == 0:
                 print(ctr)
             ctr += 1
@@ -402,6 +403,10 @@ class TrtYOLO(object):
             if self.inference_queue.qsize() > PREALLOC_OUTPUTS - 2:
                 self.inference_queue.get()
                 continue
+
+            if self.inference_queue.empty() and self.stop:
+                print("Done postprocessing")
+                return
 
             frame, trt_outputs = self.inference_queue.get()
             boxes, scores, classes = _postprocess_yolo(

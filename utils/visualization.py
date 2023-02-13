@@ -110,6 +110,9 @@ class BBoxVisualization():
         widths -= 20
             
         cur_sign_x = img.shape[1] / 2 - widths / 2
+        if cur_sign_x < 0:
+          cur_sign_x = 0
+
         sign_top = img.shape[0] - height - 10
         for bb, cf, cl, sign_image in zip(boxes, confs, clss, sign_images):
             cl = int(cl)
@@ -148,10 +151,14 @@ class BBoxVisualization():
                     int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1], 
                     channel] = (replaced_piece * 255).astype(np.uint8)
             else:
-              img[
-                  sign_top:sign_top + sign_image.shape[0], 
-                  int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1]] = sign_image
-
+              try:
+                img[
+                    sign_top:sign_top + sign_image.shape[0], 
+                    int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1]] = sign_image
+              except:
+                print("Bad ", self.cls_dict[sep_clss])
+                print(sign_top, cur_sign_x, sign_image.shape)
+                
             cur_sign_x += sign_image.shape[1] + 20
           
             # img = draw_boxed_text(img, txt, txt_loc, color)
