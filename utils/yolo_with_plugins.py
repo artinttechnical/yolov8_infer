@@ -24,6 +24,7 @@ import time
 #                      'Did you forget to do a "make" in the "./plugins/" '
 #                      'subdirectory?') from e
 
+PREALLOC_OUTPUTS = 8
 
 def _preprocess_yolo(img, input_shape, letter_box=False):
     """Preprocess an image before TRT YOLO inferencing.
@@ -393,6 +394,15 @@ class TrtYOLO(object):
     def postprocess(self):
         ctr = 0
         while not self.stop:
+            if ctr % 100 == 0:
+                print(ctr)
+            ctr += 1
+            print('.', end='', flush=True)
+
+            if self.inference_queue.qsize() > PREALLOC_OUTPUTS - 2:
+                self.inference_queue.get()
+                continue
+
             frame, trt_outputs = self.inference_queue.get()
             boxes, scores, classes = _postprocess_yolo(
                 trt_outputs, self.category_num, frame.shape[1], frame.shape[0], self.conf_th,
@@ -406,9 +416,4 @@ class TrtYOLO(object):
             frame = self.visualizer.draw_bboxes(frame, boxes, scores, classes)
             cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
             # writer.write(frame)
-            if ctr % 100 == 0:
-                print(ctr)
-            ctr += 1
-            print('.', end='', flush=True)
-
         # return boxes, scores, classes
