@@ -356,6 +356,8 @@ class TrtYOLO(object):
         del self.stream
 
     def read_and_preprocess(self):
+        next_timestamp = 0
+        processing_timestamp = 0
         while True:
             start_time = time.time()
             ret, frame = self.cap.read()
@@ -363,12 +365,16 @@ class TrtYOLO(object):
                 self.stop = True
                 return
 
-            """Detect objects in the input image."""
-            letter_box = self.letter_box # if letter_box is None else letter_box
-            img_resized = _preprocess_yolo(frame, self.input_shape, letter_box)
-            self.input_queue.put((frame, img_resized))
+            if processing_timestamp - next_timestamp < 1 / 30:
+                """Detect objects in the input image."""
+                letter_box = self.letter_box # if letter_box is None else letter_box
+                img_resized = _preprocess_yolo(frame, self.input_shape, letter_box)
+                self.input_queue.put((frame, img_resized))
+
             finish_time = time.time()
             # print("Timings ", 1 / 30, finish_time - start_time)
+            next_timestamp += 1 / 30
+            processing_timestamp = finish_time - start_time
             if 1 / 30 > (finish_time - start_time):
                 time.sleep(1 / 30 - (finish_time - start_time))
 
