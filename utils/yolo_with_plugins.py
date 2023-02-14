@@ -339,12 +339,6 @@ class TrtYOLO(object):
         self.preprocess_thread = threading.Thread(None, self.read_and_preprocess)
         self.preprocess_thread.start()
 
-        self.window_name = 'signs_detection'
-        cv2.namedWindow(self.window_name, cv2.WND_PROP_FULLSCREEN)
-        cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN,
-                          cv2.WINDOW_FULLSCREEN)
-
-
     def __del__(self):
         """Free CUDA memories."""
         self.stop = True
@@ -403,8 +397,16 @@ class TrtYOLO(object):
 
         self.inference_queue.put((img, trt_outputs[0].copy()))
 
+        # if not self.result_queue.empty():
+        #     frame = self.result_queue.get()
+        #     cv2.imshow("Detection", frame)
+        #     cv2.waitKey
+
+
     def postprocess(self):
         ctr = 0
+        window_name = 'signs_detection'
+
         while True:
             if ctr % 100 == 0:
                 print(ctr)
@@ -417,6 +419,7 @@ class TrtYOLO(object):
 
             if self.inference_queue.empty() and self.stop:
                 print("Done postprocessing")
+                cv2.destroyAllWindows() # destroy all windows
                 return
 
             frame, trt_outputs = self.inference_queue.get()
@@ -432,6 +435,8 @@ class TrtYOLO(object):
             frame = self.visualizer.draw_bboxes(frame, boxes, scores, classes)
             # cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
             # cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
-            cv2.imshow(self.window_name, frame)
+            cv2.imshow(window_name, frame)
+            cv2.waitKey(1)
+            # self.result_queue.put(frame)
             # writer.write(frame)
         # return boxes, scores, classes
