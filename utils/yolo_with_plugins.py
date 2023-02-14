@@ -339,6 +339,11 @@ class TrtYOLO(object):
         self.preprocess_thread = threading.Thread(None, self.read_and_preprocess)
         self.preprocess_thread.start()
 
+        self.window_name = 'signs_detection'
+        cv2.namedWindow(self.window_name, cv2.WND_PROP_FULLSCREEN)
+        cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN,
+                          cv2.WINDOW_FULLSCREEN)
+
 
     def __del__(self):
         """Free CUDA memories."""
@@ -419,6 +424,8 @@ class TrtYOLO(object):
             boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, frame.shape[0]-1)
 
             frame = self.visualizer.draw_bboxes(frame, boxes, scores, classes)
-            cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
+            # cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
+            # cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
+            cv2.imshow(self.window_name, frame)
             # writer.write(frame)
         # return boxes, scores, classes
