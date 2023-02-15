@@ -96,10 +96,12 @@ yolo_cls_to_ssd = [
 ]
 
 
-def get_cls_dict(category_num):
+def get_cls_dict(category_num, mappings_file_name):
     """Get the class ID to name translation dictionary."""
     if category_num == 80:
         return {i: n for i, n in enumerate(COCO_CLASSES_LIST)}
-    else:
-        with open("labels.txt", "r") as f:
+    elif category_num == 155:
+        with open(mappings_file_name, "r") as f:
             return {i: sign_name.strip() for i, sign_name in enumerate(f.readlines())}
+    else:
+        return {}

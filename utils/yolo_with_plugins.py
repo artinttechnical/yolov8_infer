@@ -434,8 +434,8 @@ class TrtYOLO(object):
 
             frame = self.visualizer.draw_bboxes(frame, boxes, scores, classes)
             # cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
-            # cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
-            cv2.imshow(window_name, frame)
+            cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
+            # cv2.imshow(window_name, frame)
             cv2.waitKey(1)
             # self.result_queue.put(frame)
             # writer.write(frame)

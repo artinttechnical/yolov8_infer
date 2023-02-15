@@ -111,8 +111,16 @@ def main():
         args.output,
         cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height))
 
-    cls_dict = get_cls_dict(args.category_num)
-    vis = BBoxVisualization(cls_dict)
+    if args.category_num == 155:
+        prefix = "sign_images/RU_road_sign_"
+        suffix = ".svg.png"
+        file_name = "labels.txt"
+    elif args.category_num == 3:
+        pass
+
+    cls_dict = get_cls_dict(args.category_num, file_name)
+
+    vis = BBoxVisualization(cls_dict, prefix, suffix)
     trt_yolo = TrtYOLO(args.model, args.category_num, args.letter_box, conf_th=0.3, visualizer=vis, capturer=cap)
 
     total_start_time = time.time()

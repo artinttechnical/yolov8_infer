@@ -84,8 +84,10 @@ class BBoxVisualization():
       cls_dict: a dictionary used to translate class id to its name.
     """
 
-    def __init__(self, cls_dict):
+    def __init__(self, cls_dict, images_path, images_suffix):
         self.cls_dict = cls_dict
+        self.images_path = images_path
+        self.images_suffix = images_suffix
         self.colors = gen_colors(len(cls_dict))
 
     def draw_bboxes(self, img, boxes, confs, clss):
@@ -97,7 +99,8 @@ class BBoxVisualization():
 
         for sep_clss in clss:
             # sign_image = cv2.imread(f"sign_images/RU_road_sign_{self.cls_dict[sep_clss]}.svg.png", cv2.IMREAD_UNCHANGED)
-            sign_image = cv2.imread(f"sign_images/RU_road_sign_{self.cls_dict[sep_clss]}.svg.png")
+            # sign_image = cv2.imread(f"sign_images/RU_road_sign_{self.cls_dict[sep_clss]}.svg.png")
+            sign_image = cv2.imread(f"{self.images_path}{self.cls_dict[sep_clss]}{self.images_suffix}")
             ratio = sign_image.shape[1] / (img.shape[1] / ORIG_IMAGE_FRACTION)
             sign_images.append(
               cv2.resize(
