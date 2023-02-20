@@ -72,7 +72,9 @@ def loop_and_detect(cap, trt_yolo, conf_th, writer):
 class MyCap:
     def __init__(self, path: str):
         self._path = Path(path)
-        self._counter = 1
+        self._counter = 1200
+        # self._counter = 1694
+        # self._counter = 1 
     
     def get(self, param):
         if param == 3:
@@ -116,7 +118,9 @@ def main():
         suffix = ".svg.png"
         file_name = "labels.txt"
     elif args.category_num == 3:
-        pass
+        prefix = "traffic_lights/traffic-light-"
+        suffix = ".jpg"
+        file_name = "labels_lights.txt"
 
     cls_dict = get_cls_dict(args.category_num, file_name)
 
@@ -128,6 +132,8 @@ def main():
     total_end_time = time.time()
 
     print("Total FPS ", 1800 / (total_end_time - total_start_time))
+    print("Infer FPS ", trt_yolo.infer_fps / (total_end_time - total_start_time))
+    # print("Total FPS ", 600 / (total_end_time - total_start_time))
 
     writer.release()
     cap.release()

@@ -327,6 +327,7 @@ class TrtYOLO(object):
         self.visualizer = visualizer
         self.conf_th = conf_th
         self.stop = False
+        self.infer_fps = 0
         self.inference_queue = queue.Queue()
         self.input_queue = queue.Queue()
         # self.input_queue = queue.Queue()
@@ -375,6 +376,7 @@ class TrtYOLO(object):
     def detect(self):
         # Set host input to the image. The do_inference() function
         # will copy the input to the GPU before executing.
+        self.infer_fps += 1
         active_len = self.input_queue.qsize()
         for _ in range(active_len - 1):
             self.input_queue.get()
@@ -395,6 +397,7 @@ class TrtYOLO(object):
         if self.cuda_ctx:
             self.cuda_ctx.pop()
 
+        self.infer_fps += 1
         self.inference_queue.put((img, trt_outputs[0].copy()))
 
         # if not self.result_queue.empty():
@@ -436,7 +439,7 @@ class TrtYOLO(object):
             # cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
             cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
             # cv2.imshow(window_name, frame)
-            cv2.waitKey(1)
+            # cv2.waitKey(1)
             # self.result_queue.put(frame)
             # writer.write(frame)
         # return boxes, scores, classes

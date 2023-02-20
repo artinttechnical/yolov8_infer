@@ -97,9 +97,11 @@ class BBoxVisualization():
         height = 0
         ORIG_IMAGE_FRACTION = 8
 
+        # print("Classes ", clss)
         for sep_clss in clss:
             # sign_image = cv2.imread(f"sign_images/RU_road_sign_{self.cls_dict[sep_clss]}.svg.png", cv2.IMREAD_UNCHANGED)
             # sign_image = cv2.imread(f"sign_images/RU_road_sign_{self.cls_dict[sep_clss]}.svg.png")
+            
             sign_image = cv2.imread(f"{self.images_path}{self.cls_dict[sep_clss]}{self.images_suffix}")
             ratio = sign_image.shape[1] / (img.shape[1] / ORIG_IMAGE_FRACTION)
             sign_images.append(
@@ -117,7 +119,9 @@ class BBoxVisualization():
           cur_sign_x = 0
 
         sign_top = img.shape[0] - height - 10
+        # print("Len ", len(confs))
         for bb, cf, cl, sign_image in zip(boxes, confs, clss, sign_images):
+            print("Detect ", clss)
             cl = int(cl)
             x_min, y_min, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
             color = self.colors[cl]
@@ -154,6 +158,7 @@ class BBoxVisualization():
                     int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1], 
                     channel] = (replaced_piece * 255).astype(np.uint8)
             else:
+              pass
               try:
                 img[
                     sign_top:sign_top + sign_image.shape[0], 
