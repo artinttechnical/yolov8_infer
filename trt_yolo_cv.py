@@ -117,7 +117,7 @@ def main():
         prefix = "sign_images/RU_road_sign_"
         suffix = ".svg.png"
         file_name = "labels.txt"
-    elif args.category_num == 3:
+    elif args.category_num == 4:
         prefix = "traffic_lights/traffic-light-"
         suffix = ".jpg"
         file_name = "labels_lights.txt"

@@ -121,7 +121,7 @@ class BBoxVisualization():
         sign_top = img.shape[0] - height - 10
         # print("Len ", len(confs))
         for bb, cf, cl, sign_image in zip(boxes, confs, clss, sign_images):
-            print("Detect ", clss)
+            # print("Detect ", clss)
             cl = int(cl)
             x_min, y_min, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
             color = self.colors[cl]

@@ -382,6 +382,7 @@ class TrtYOLO(object):
             self.input_queue.get()
 
         if active_len == 0 and self.stop:
+            print("Quit detect function")
             return
 
         img, img_resized = self.input_queue.get()
