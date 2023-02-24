@@ -104,14 +104,23 @@ def main():
     if not os.path.isfile('yolo/%s.trt' % args.model):
         raise SystemExit('ERROR: file (yolo/%s.trt) not found!' % args.model)
 
-    # cap = cv2.VideoCapture(args.video)
-    cap = MyCap(args.video)
+
+    cap = cv2.VideoCapture(
+        f"filesrc location={args.video} ! "
+        f"qtdemux name=demux demux.video_0 ! queue ! "
+        f"h265parse ! "
+        f"omxh265dec ! "
+        f"nvvidconv ! video/x-raw,format=BGRx ! queue ! "
+        f"videoconvert ! queue ! video/x-raw, format=BGR ! "
+        f"appsink", cv2.CAP_GSTREAMER)
+
     if not cap.isOpened():
         raise SystemExit('ERROR: failed to open the input video file!')
     frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
-    writer = cv2.VideoWriter(
-        args.output,
-        cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height))
+    writer=None
+    # writer = cv2.VideoWriter(
+    #     args.output,
+    #     cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height))
 
     if args.category_num == 155:
         prefix = "sign_images/RU_road_sign_"
@@ -135,7 +144,7 @@ def main():
     print("Infer FPS ", trt_yolo.infer_fps / (total_end_time - total_start_time))
     # print("Total FPS ", 600 / (total_end_time - total_start_time))
 
-    writer.release()
+    # writer.release()
     cap.release()
 
 
