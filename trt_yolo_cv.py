@@ -110,7 +110,7 @@ def main():
         f"qtdemux name=demux demux.video_0 ! queue ! "
         f"h265parse ! "
         f"omxh265dec ! "
-        f"nvvidconv ! video/x-raw,format=BGRx ! queue ! "
+        f"nvvidconv ! video/x-raw,format=BGRx,width=(int)640,height=(int)480  ! queue ! "
         f"videoconvert ! queue ! video/x-raw, format=BGR ! "
         f"appsink", cv2.CAP_GSTREAMER)
 
