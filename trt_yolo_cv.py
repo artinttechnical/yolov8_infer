@@ -110,9 +110,13 @@ def main():
         f"qtdemux name=demux demux.video_0 ! queue ! "
         f"h265parse ! "
         f"omxh265dec ! "
-        f"nvvidconv ! video/x-raw,format=BGRx,width=(int)640,height=(int)480  ! queue ! "
-        f"videoconvert ! queue ! video/x-raw, format=BGR ! "
-        f"appsink", cv2.CAP_GSTREAMER)
+        f"tee name=decoded !"
+        f"queue ! videoconvert ! video/x-raw, format=BGR ! "
+        f"appsink name=full_frame"
+        f".decoded ! queue !"
+        f"nvvidconv ! video/x-raw,format=BGRx,width=(int)640,height=(int)480 !"
+        f"videoconvert ! video/x-raw, format=BGR ! "
+        f"appsink name=resized_frame", cv2.CAP_GSTREAMER)
 
     if not cap.isOpened():
         raise SystemExit('ERROR: failed to open the input video file!')
