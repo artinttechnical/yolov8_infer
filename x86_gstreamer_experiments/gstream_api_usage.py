@@ -1,124 +1,125 @@
+# import gi
+# gi.require_version('Gst', '1.0')
+
+# from gi.repository import Gst, GLib, GObject
+# import threading
+# import time
+
+
+# GObject.threads_init()
+# Gst.init(None)   
+
+# cv2_adapter = Gst.Pipeline.new("Adapter")
+
+# player = Gst.Pipeline.new("player")
+# source = Gst.ElementFactory.make("videotestsrc", "video-source")
+# source.set_property("num-buffers", 1)
+# sink = Gst.ElementFactory.make("jpegenc", "video-output")
+# sink1 = Gst.ElementFactory.make("filesink", "video-output1")
+# sink1.set_property("location", "full_res/img%d.jpg")
+# caps = Gst.Caps.from_string("video/x-raw, width=320, height=230")
+# filter = Gst.ElementFactory.make("capsfilter", "filter")
+# filter.set_property("caps", caps)
+# player.add(source)
+# # player.add(filter)
+# player.add(sink)
+# player.add(sink1)
+# source.link(sink)
+# # source.link(filter)
+# # filter.link(sink)
+# sink.link(sink1)
+
+
+# def on_message(bus, message, is_running, index):
+#     t = message.type
+#     if t == Gst.MessageType.EOS:
+#         is_running[index] = False
+
+# def pipeline_run(pipeline, is_running):
+#     pipeline.set_state(Gst.State.PLAYING)
+#     while is_running[0] or is_running[1]:
+#         print("Wait ")
+#         time.sleep(1)
+#     time.sleep(1)
+#     loop.quit()
+
+# is_running = [True, False]
+# bus = player.get_bus()
+# bus.add_signal_watch()
+# bus.connect("message", on_message, is_running, 0)
+
+# start_thread = threading.Thread(None, pipeline_run, "Starting", args=(cv2_adapter, is_running))
+# start_thread.start()
+# loop = GLib.MainLoop()
+# loop.run()
+# start_thread.join()
+
+import sys, os
 import gi
 gi.require_version('Gst', '1.0')
+from gi.repository import Gst, GObject, Gtk
 
-from gi.repository import Gst, GLib, GObject
-import threading
-import time
+# Needed for window.get_xid(), xvimagesink.set_window_handle(), respectively:
+from gi.repository import GdkX11, GstVideo
+
+class GTK_Main(object):
+
+    def __init__(self):
+        window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+        window.set_title("Video-Player")
+        window.set_default_size(500, 400)
+        window.connect("destroy", Gtk.main_quit, "WM destroy")
+        vbox = Gtk.VBox()
+        window.add(vbox)
+        hbox = Gtk.HBox()
+        vbox.pack_start(hbox, False, False, 0)
+        self.entry = Gtk.Entry()
+        hbox.add(self.entry)
+        self.button = Gtk.Button("Start")
+        hbox.pack_start(self.button, False, False, 0)
+        self.button.connect("clicked", self.start_stop)
+        self.movie_window = Gtk.DrawingArea()
+        vbox.add(self.movie_window)
+        window.show_all()
+
+        self.player = Gst.ElementFactory.make("playbin", "player")
+        bus = self.player.get_bus()
+        bus.add_signal_watch()
+        bus.enable_sync_message_emission()
+        bus.connect("message", self.on_message)
+        bus.connect("sync-message::element", self.on_sync_message)
+
+    def start_stop(self, w):
+        if self.button.get_label() == "Start":
+            filepath = self.entry.get_text().strip()
+            if os.path.isfile(filepath):
+                filepath = os.path.realpath(filepath)
+                self.button.set_label("Stop")
+                self.player.set_property("uri", "file://" + filepath)
+                self.player.set_state(Gst.State.PLAYING)
+            else:
+                self.player.set_state(Gst.State.NULL)
+                self.button.set_label("Start")
+
+    def on_message(self, bus, message):
+        t = message.type
+        if t == Gst.MessageType.EOS:
+            self.player.set_state(Gst.State.NULL)
+            self.button.set_label("Start")
+        elif t == Gst.MessageType.ERROR:
+            self.player.set_state(Gst.State.NULL)
+            err, debug = message.parse_error()
+            print("Error: %s" % err, debug)
+            self.button.set_label("Start")
+
+    def on_sync_message(self, bus, message):
+        if message.get_structure().get_name() == 'prepare-window-handle':
+            imagesink = message.src
+            imagesink.set_property("force-aspect-ratio", True)
+            imagesink.set_window_handle(self.movie_window.get_property('window').get_xid())
 
 
 GObject.threads_init()
-Gst.init(None)   
-
-cv2_adapter = Gst.Pipeline.new("Adapter")
-
-source = Gst.ElementFactory.make("filesrc", "video-source")
-source.set_property("location", "NO20230128-115104-009260F.MP4")
-cv2_adapter.add(source)
-
-demuxer = Gst.ElementFactory.make("qtdemux", "demuxer")
-cv2_adapter.add(demuxer)
-
-videoqueue = Gst.ElementFactory.make("queue", "videoqueue")
-cv2_adapter.add(videoqueue)
-
-parser = Gst.ElementFactory.make("h265parse", "stream-parser")
-cv2_adapter.add(parser)
-
-decoder = Gst.ElementFactory.make("libde265dec", "stream-decoder")
-cv2_adapter.add(decoder)
-
-streams_tee = Gst.ElementFactory.make("tee", "streams-tee")
-cv2_adapter.add(streams_tee)
-
-fullres_queue = Gst.ElementFactory.make("queue", "full-resolution-queue")
-cv2_adapter.add(fullres_queue)
-
-fullres_format_converter = Gst.ElementFactory.make("videoconvert", "fullres_format_converter")
-cv2_adapter.add(fullres_format_converter)
-
-fullres_format_caps = Gst.Caps.from_string("video/x-raw,format=BGR")
-fullres_format_filter = Gst.ElementFactory.make("capsfilter", "fullres_format_filter")
-fullres_format_filter.set_property("caps", fullres_format_caps)
-cv2_adapter.add(fullres_format_filter)
-
-fullres_encoder = Gst.ElementFactory.make("jpegenc", "full-resolution-encoder")
-cv2_adapter.add(fullres_encoder)
-
-fullres_sink = Gst.ElementFactory.make("multifilesink", "full-resolution-sink")
-fullres_sink.set_property("location", "full_res/img%05d.jpg")
-cv2_adapter.add(fullres_sink)
-
-resized_queue = Gst.ElementFactory.make("queue", "resized-queue")
-cv2_adapter.add(resized_queue)
-resized_scaler = Gst.ElementFactory.make("videoscale")
-cv2_adapter.add(resized_scaler)
-
-resize_caps = Gst.Caps.from_string("video/x-raw, width=640, height=480")
-resize_filter = Gst.ElementFactory.make("capsfilter", "resize_filter")
-resize_filter.set_property("caps", resize_caps)
-cv2_adapter.add(resize_filter)
-
-resized_format_converter = Gst.ElementFactory.make("videoconvert", "resized_format_converter")
-cv2_adapter.add(resized_format_converter)
-
-resized_format_caps = Gst.Caps.from_string("video/x-raw,format=BGR")
-resized_format_filter = Gst.ElementFactory.make("capsfilter", "resized_format_filter")
-resized_format_filter.set_property("caps", resized_format_caps)
-cv2_adapter.add(resized_format_filter)
-
-resized_encoder = Gst.ElementFactory.make("jpegenc", "resized-encoder")
-cv2_adapter.add(resized_encoder)
-
-resized_sink = Gst.ElementFactory.make("multifilesink", "resized-sink")
-resized_sink.set_property("location", "small_res/img%05d.jpg")
-cv2_adapter.add(resized_sink)
-
-source.link(demuxer)
-demuxer.link(videoqueue)
-videoqueue.link(parser)
-parser.link(decoder)
-decoder.link(streams_tee)
-
-# queue_sinkpad = fullres_queue.get_pad("sink")
-# tee_audio_pad = gst_element_request_pad_simple (tee, "src_%u");
-# streams_tee_pad.link(queue_sinkpad)
-streams_tee.link(fullres_queue)
-
-fullres_queue.link(fullres_format_converter)
-fullres_format_converter.link(fullres_format_filter)
-fullres_format_filter.link(fullres_encoder)
-fullres_encoder.link(fullres_sink)
-
-
-# streams_tee.link(resized_queue)
-# resized_queue.link(resized_scaler)
-# resized_scaler.link(resize_filter)
-# resize_filter.link(resized_format_converter)
-# resized_format_converter.link(resized_format_filter)
-# resized_format_filter.link(resized_encoder)
-# resized_encoder.link(resized_sink)
-
-def on_message(bus, message, index):
-    t = message.type
-    if t == Gst.MessageType.EOS:
-        is_running = False
-
-def pipeline_run(pipeline, is_running):
-    pipeline.set_state(Gst.State.PLAYING)
-    while is_running[0] or is_running[1]:
-        print("Wait ")
-        time.sleep(1)
-    time.sleep(1)
-    loop.quit()
-
-
-bus = cv2_adapter.get_bus()
-bus.add_signal_watch()
-bus.connect("message", on_message, 0)
-
-is_running = [True, False]   
-start_thread = threading.Thread(None, pipeline_run, "Starting", args=(cv2_adapter, is_running))
-start_thread.start()
-loop = GLib.MainLoop()
-loop.run()
-start_thread.join()
+Gst.init(None)        
+GTK_Main()
+Gtk.main()
