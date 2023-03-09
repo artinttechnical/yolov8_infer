@@ -18,12 +18,15 @@ videoscale ! video/x-raw,width=640,height=480 !
 videoconvert ! video/x-raw,format=BGR ! 
 jpegenc ! appsink name=smallres_sink"""
 
-def pipeline_loop(pipeline, is_playing):
+def pipeline_loop(pipeline, is_playing, loop):
     print("Running pipeline")
     pipeline.set_state(Gst.State.PLAYING)
     while is_playing[0]:
         print(".", end="")
         time.sleep(1)
+    print("Stopping pipeline")
+    loop.quit()
+
 
 def on_buffer(sink, data) -> Gst.FlowReturn:
     # print("On buffer")
@@ -42,12 +45,22 @@ def on_buffer(sink, data) -> Gst.FlowReturn:
     counter += 1
     return Gst.FlowReturn.OK
 
+def on_message(bus, message, is_playing, pipeline):
+    t = message.type
+    if t == Gst.MessageType.EOS:
+        print("Got EOS")
+        is_playing[0] = False
+        pipeline.set_state(Gst.State.NULL)
+
+
 GObject.threads_init()
 Gst.init(None)
 
 gst_pipeline = Gst.parse_launch(pipeline_str_description)
 is_playing = [True]
-starter = threading.Thread(None, pipeline_loop, args=(gst_pipeline, is_playing))
+bus = gst_pipeline.get_bus()
+bus.add_signal_watch()
+bus.connect("message", on_message, is_playing, gst_pipeline)
 
 for sink_name in ("fullres_sink", "smallres_sink"):
     pipeline_appsink = gst_pipeline.get_by_name(sink_name)
@@ -59,6 +72,10 @@ for sink_name in ("fullres_sink", "smallres_sink"):
 # smallres_appsink.connect("new-sample", on_buffer, None)
 
 counter = 0
-starter.start()
 loop = GLib.MainLoop()
+starter = threading.Thread(None, pipeline_loop, args=(gst_pipeline, is_playing, loop))
+starter.start()
 loop.run()
+print("Quit loop")
+starter.join()
+print("Thread joined")
