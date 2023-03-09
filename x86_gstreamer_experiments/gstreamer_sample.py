@@ -3,7 +3,20 @@ import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib, GObject
 
-pipeline_str_description = "filesrc location=\"NO20230128-115104-009260F.MP4\" ! qtdemux ! queue name=read_queue ! h265parse ! libde265dec ! tee name=decoded ! queue ! videoconvert ! video/x-raw,format=BGR ! jpegenc ! appsink name=fullres_sink decoded. ! queue ! videoscale ! video/x-raw,width=640,height=480 ! videoconvert ! video/x-raw,format=BGR ! jpegenc ! appsink name=smallres_sink"
+pipeline_str_description = """
+filesrc location=\"NO20230128-115104-009260F.MP4\" ! 
+qtdemux ! 
+queue name=read_queue ! 
+h265parse ! libde265dec ! 
+tee name=decoded ! 
+queue ! 
+videoconvert ! video/x-raw,format=BGR ! 
+jpegenc ! appsink name=fullres_sink 
+decoded. ! 
+queue ! 
+videoscale ! video/x-raw,width=640,height=480 ! 
+videoconvert ! video/x-raw,format=BGR ! 
+jpegenc ! appsink name=smallres_sink"""
 
 def pipeline_loop(pipeline, is_playing):
     print("Running pipeline")
