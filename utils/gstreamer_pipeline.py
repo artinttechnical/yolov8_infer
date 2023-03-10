@@ -4,6 +4,7 @@ gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib, GObject
 from collections import namedtuple
 from queue import Queue
+import numpy as np
 
 PIPELINE_STR_DESCRIPTION = """
 filesrc location={filesrc} ! 
@@ -13,12 +14,12 @@ h265parse ! libde265dec !
 tee name=decoded ! 
 queue ! 
 videoconvert ! video/x-raw,format=BGR ! 
-jpegenc ! appsink name={fullres_sink_name} 
+appsink name={fullres_sink_name} 
 decoded. ! 
 queue ! 
 videoscale ! video/x-raw,width={width},height={height} ! 
 videoconvert ! video/x-raw,format=BGR ! 
-jpegenc ! appsink name={smallres_sink_name}"""
+appsink name={smallres_sink_name}"""
 
 SinkNames = namedtuple("SinkNames", ["fullres", "smallres"])
 SINK_NAMES = SinkNames("fullres_sink", "smallres_sink")
@@ -113,16 +114,14 @@ class HarcodedGstreamerPipeline:
             while any([q.empty() for q in self._buffers.values()]):
                 self._data_ready_cv.wait()
         result = [queue.get() for queue in self._buffers.values()]
+        #TODO - replace hardcoded resolution
+        result[0] = np.frombuffer(result[0], dtype=np.uint8)
+        result[1] = np.frombuffer(result[1], dtype=np.uint8)
+        result[0] = result[0].reshape((1944, 2592, 3))
+        result[1] = result[1].reshape((480, 640, 3))
         return True, tuple(result)
 
     #TODO - make honest resolution size, opening status and releasing or remove it at all
-    def get(self, param):
-        if param == 3:
-            # return 2592
-            return 640 * 2
-        elif param == 4:
-            return 480 * 2
-
     def isOpened(self):
         return True
 
@@ -131,7 +130,7 @@ class HarcodedGstreamerPipeline:
 
 
 if __name__ == "__main__":
-    # import cv2
+    import cv2
 
     capturer = HarcodedGstreamerPipeline("NO20230128-115104-009260F.MP4", 640, 480)
     capturer.start()
@@ -142,10 +141,8 @@ if __name__ == "__main__":
             break
         fullres_frame, smallres_frame = frames
         
-        with open(f"full_res/fimg{counter:04}.jpg", "wb") as f:
-            f.write(fullres_frame)
-        with open(f"small_res/simg{counter:04}.jpg", "wb") as f:
-            f.write(smallres_frame)
+        cv2.imwrite(f"full_res/fimg{counter:04}.jpg", fullres_frame)
+        cv2.imwrite(f"small_res/simg{counter:04}.jpg", smallres_frame)
         counter += 1
 
     capturer.stop()
