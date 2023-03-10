@@ -20,7 +20,7 @@ videoscale ! video/x-raw,width={width},height={height} !
 videoconvert ! video/x-raw,format=BGR ! 
 jpegenc ! appsink name={smallres_sink_name}"""
 
-SinkNames = namedtuple("SinkNames", "fullres", "smallres")
+SinkNames = namedtuple("SinkNames", ["fullres", "smallres"])
 SINK_NAMES = SinkNames("fullres_sink", "smallres_sink")
 
 class HarcodedGstreamerPipeline:
@@ -72,7 +72,7 @@ class HarcodedGstreamerPipeline:
             self._buffers[sink_name].put(buffer)
         return Gst.FlowReturn.OK
     
-    def on_message(self, bus, message):
+    def _on_message(self, bus, message):
         t = message.type
         if t == Gst.MessageType.EOS:
             print("Got EOS")
@@ -90,7 +90,7 @@ class HarcodedGstreamerPipeline:
             loop.quit()
 
         loop = GLib.MainLoop()
-        starter = threading.Thread(None, pipeline_loop, args=(self._gst_pipeline, self.is_playing, loop))
+        starter = threading.Thread(None, pipeline_loop, args=(self._gst_pipeline, self._is_playing, loop))
         starter.start()
         loop.run()
         starter.join()
@@ -119,3 +119,22 @@ class HarcodedGstreamerPipeline:
 
     def release(self):
         pass
+
+
+if __name__ == "__main__":
+    # import cv2
+
+    capturer = HarcodedGstreamerPipeline("NO20230128-115104-009260F.MP4", 640, 480)
+    capturer.start()
+    counter = 0
+    while True:
+        ret, frames = capturer.read()
+        if not ret:
+            break
+        fullres_frame, smallres_frame = frames
+        
+        with open(f"full_res/fimg{counter:04}.jpg", "wb") as f:
+            f.write(fullres_frame)
+        with open(f"small_res/simg{counter:04}.jpg", "wb") as f:
+            f.write(smallres_frame)
+        counter += 1
