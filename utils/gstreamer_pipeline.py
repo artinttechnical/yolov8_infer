@@ -31,7 +31,7 @@ class HarcodedGstreamerPipeline:
         self._subscribe_to_appsinks_data()
 
     def _subscribe_to_eos_msg(self):
-        self._is_playing = [True]
+        self._is_playing = [False]
         bus = self._gst_pipeline.get_bus()
         bus.add_signal_watch()
         bus.connect("message", self._on_message)
@@ -67,15 +67,20 @@ class HarcodedGstreamerPipeline:
         sample = sink.emit("pull-sample")
         buffer = sample.get_buffer()
         # print(type(buffer))
-        # print("Sink name got ", sink_name, type(data))
         with self._data_ready_cv:
-            self._buffers[sink_name].put(buffer)
+            self._buffers[sink_name].put(buffer.extract_dup(0, buffer.get_size()))
+            self._data_ready_cv.notify()
+
         return Gst.FlowReturn.OK
     
     def _on_message(self, bus, message):
         t = message.type
         if t == Gst.MessageType.EOS:
             print("Got EOS")
+            self._is_playing[0] = False
+            self._gst_pipeline.set_state(Gst.State.NULL)
+        elif t == Gst.MessageType.ERROR:
+            print("Got Error")
             self._is_playing[0] = False
             self._gst_pipeline.set_state(Gst.State.NULL)
 
@@ -90,20 +95,24 @@ class HarcodedGstreamerPipeline:
             loop.quit()
 
         loop = GLib.MainLoop()
-        starter = threading.Thread(None, pipeline_loop, args=(self._gst_pipeline, self._is_playing, loop))
-        starter.start()
-        loop.run()
-        starter.join()
+        self._pipeline_thread = threading.Thread(None, pipeline_loop, args=(self._gst_pipeline, self._is_playing, loop))
+        self._is_playing[0] = True
+        self._pipeline_thread.start()
+        self._main_loop_thread = threading.Thread(None, lambda : loop.run())
+        self._main_loop_thread.start()
 
+    def stop(self):
+        self._pipeline_thread.join()
+        self._main_loop_thread.join()
 
     #interface part
     def read(self):
-        if not self._is_playing:
+        if not self._is_playing[0]:
             return False, ()
         with self._data_ready_cv:
-            while any(self._buffers.values.empty()):
+            while any([q.empty() for q in self._buffers.values()]):
                 self._data_ready_cv.wait()
-        result = [queue.get() for queue in self._buffers.values]
+        result = [queue.get() for queue in self._buffers.values()]
         return True, tuple(result)
 
     #TODO - make honest resolution size, opening status and releasing or remove it at all
@@ -138,3 +147,5 @@ if __name__ == "__main__":
         with open(f"small_res/simg{counter:04}.jpg", "wb") as f:
             f.write(smallres_frame)
         counter += 1
+
+    capturer.stop()
