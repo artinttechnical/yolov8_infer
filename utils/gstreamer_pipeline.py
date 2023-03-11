@@ -21,13 +21,29 @@ videoscale ! video/x-raw,width={width},height={height} !
 videoconvert ! video/x-raw,format=BGR ! 
 appsink name={smallres_sink_name}"""
 
+NVIDIA_ACCEL_STR_DESCRIPTION = """
+filesrc location={filesrc} ! 
+qtdemux ! 
+queue name=read_queue ! 
+h265parse ! nvv4l2decoder ! 
+tee name=decoded ! 
+queue ! 
+videoconvert ! video/x-raw,format=BGR ! 
+appsink name={fullres_sink_name} 
+decoded. ! 
+queue ! 
+nvvidconv ! video/x-raw,format=BGRx,width=(int){width},height=(int){height} !"
+videoconvert ! video/x-raw,format=BGR ! 
+appsink name={smallres_sink_name}"""
+
+
 SinkNames = namedtuple("SinkNames", ["fullres", "smallres"])
 SINK_NAMES = SinkNames("fullres_sink", "smallres_sink")
 
-class HarcodedGstreamerPipeline:
-    def __init__(self, path, resized_width, resized_height) -> None:
+class GenericGstreamerPipeline:
+    def __init__(self, pipeline, path, resized_width, resized_height) -> None:
         self._general_gstreamer_init()
-        self._create_and_set_pipeline(path, resized_width, resized_height)
+        self._create_and_set_pipeline(pipeline, path, resized_width, resized_height)
         self._subscribe_to_eos_msg()
         self._subscribe_to_appsinks_data()
 
@@ -53,9 +69,9 @@ class HarcodedGstreamerPipeline:
         GObject.threads_init()
         Gst.init(None)
 
-    def _create_and_set_pipeline(self, path, resized_width, resized_height):
+    def _create_and_set_pipeline(self, pipeline, path, resized_width, resized_height):
         self._gst_pipeline = Gst.parse_launch(
-            PIPELINE_STR_DESCRIPTION.format(
+            pipeline.format(
             filesrc=path, 
             fullres_sink_name=SINK_NAMES.fullres,
             width=resized_width,
@@ -140,11 +156,19 @@ class HarcodedGstreamerPipeline:
     def release(self):
         pass
 
+class NvidiaAcceleratedCapturer(GenericGstreamerPipeline):
+    def __init__(self, path, resized_width, resized_height):
+        super.__init__(self, NVIDIA_ACCEL_STR_DESCRIPTION)
+
+class GenericGstreamerCapturer(GenericGstreamerPipeline):
+    def __init__(self, path, resized_width, resized_height) -> None:
+        super().__init__(PIPELINE_STR_DESCRIPTION, path, resized_width, resized_height)
+
 
 if __name__ == "__main__":
     import cv2
 
-    capturer = HarcodedGstreamerPipeline("NO20230128-115104-009260F.MP4", 640, 480)
+    capturer = GenericGstreamerCapturer("NO20230128-115104-009260F.MP4", 640, 480)
     capturer.start()
     counter = 0
     while True:
