@@ -17,6 +17,7 @@ import pycuda.autoinit  # This is needed for initializing CUDA driver
 from utils.yolo_classes import get_cls_dict
 from utils.visualization import BBoxVisualization
 from utils.yolo_with_plugins import TrtYOLO
+from utils.gstreamer_pipeline import NvidiaAcceleratedCapturer
 
 from pathlib import Path
 
@@ -46,6 +47,8 @@ def parse_args():
     parser.add_argument(
         '-l', '--letter_box', action='store_true',
         help='inference with letterboxed image [False]')
+    parser.add_argument("-n", "--nvidia-accel", action="store_true",
+                        help="Use nvidia-accelerated gstreamer video processing")
     args = parser.parse_args()
     return args
 
@@ -104,23 +107,11 @@ def main():
     if not os.path.isfile('yolo/%s.trt' % args.model):
         raise SystemExit('ERROR: file (yolo/%s.trt) not found!' % args.model)
 
-
-    cap = cv2.VideoCapture(
-        f"filesrc location={args.video} ! "
-        f"qtdemux name=demux demux.video_0 ! queue ! "
-        f"h265parse ! "
-        f"omxh265dec ! "
-        f"tee name=decoded !"
-        f"queue ! videoconvert ! video/x-raw, format=BGR ! "
-        f"appsink name=full_frame"
-        f".decoded ! queue !"
-        f"nvvidconv ! video/x-raw,format=BGRx,width=(int)640,height=(int)480 !"
-        f"videoconvert ! video/x-raw, format=BGR ! "
-        f"appsink name=resized_frame", cv2.CAP_GSTREAMER)
+    cap = NvidiaAcceleratedCapturer(args.video, 640, 480)
 
     if not cap.isOpened():
         raise SystemExit('ERROR: failed to open the input video file!')
-    frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
+    # frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
     writer=None
     # writer = cv2.VideoWriter(
     #     args.output,
@@ -146,7 +137,7 @@ def main():
 
     print("Total FPS ", 1800 / (total_end_time - total_start_time))
     print("Infer FPS ", trt_yolo.infer_fps / (total_end_time - total_start_time))
-    # print("Total FPS ", 600 / (total_end_time - total_start_time))
+    # print("Output FPS ", 600 / (total_end_time - total_start_time))
 
     # writer.release()
     cap.release()
