@@ -39,6 +39,7 @@ class HarcodedGstreamerPipeline:
 
     def _subscribe_to_appsinks_data(self):
         self._buffers = {}
+        self._resolutions = {}
         self._data_ready_cv = threading.Condition()
         for sink_name in SINK_NAMES:
             self._buffers[sink_name] = Queue()
@@ -63,7 +64,6 @@ class HarcodedGstreamerPipeline:
         self._is_playing = False
 
     def _on_buffer(self, sink, data) -> Gst.FlowReturn:
-        # print("On buffer")
         sink_name = sink.get_property("name")
         sample = sink.emit("pull-sample")
         buffer = sample.get_buffer()
@@ -84,6 +84,15 @@ class HarcodedGstreamerPipeline:
             print("Got Error")
             self._is_playing[0] = False
             self._gst_pipeline.set_state(Gst.State.NULL)
+        elif t == Gst.MessageType.STATE_CHANGED:
+            for sink_name in SINK_NAMES:
+                pipeline_appsink = self._gst_pipeline.get_by_name(sink_name)
+                pad = pipeline_appsink.get_static_pad("sink")
+                caps = pad.get_current_caps()
+                if caps:
+                    struct = caps.get_structure(0)
+                    self._resolutions[sink_name] = (struct.get_int("height")[1], struct.get_int("width")[1], 3)
+
 
     def start(self):
         def pipeline_loop(pipeline, is_playing, loop):
@@ -113,12 +122,15 @@ class HarcodedGstreamerPipeline:
         with self._data_ready_cv:
             while any([q.empty() for q in self._buffers.values()]):
                 self._data_ready_cv.wait()
-        result = [queue.get() for queue in self._buffers.values()]
-        #TODO - replace hardcoded resolution
-        result[0] = np.frombuffer(result[0], dtype=np.uint8)
-        result[1] = np.frombuffer(result[1], dtype=np.uint8)
-        result[0] = result[0].reshape((1944, 2592, 3))
-        result[1] = result[1].reshape((480, 640, 3))
+
+        result = [
+            np.frombuffer(
+                self._buffers[queue_name].get(),
+                dtype=np.uint8
+            ).reshape(
+                self._resolutions[queue_name]
+            )
+        for queue_name in self._buffers]
         return True, tuple(result)
 
     #TODO - make honest resolution size, opening status and releasing or remove it at all
