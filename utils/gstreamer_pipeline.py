@@ -158,7 +158,7 @@ class GenericGstreamerPipeline:
 
 class NvidiaAcceleratedCapturer(GenericGstreamerPipeline):
     def __init__(self, path, resized_width, resized_height):
-        super.__init__(self, NVIDIA_ACCEL_STR_DESCRIPTION)
+        super.__init__(self, NVIDIA_ACCEL_STR_DESCRIPTION, path, resized_width, resized_height)
 
 class GenericGstreamerCapturer(GenericGstreamerPipeline):
     def __init__(self, path, resized_width, resized_height) -> None:
