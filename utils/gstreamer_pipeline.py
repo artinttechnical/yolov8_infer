@@ -5,6 +5,7 @@ from gi.repository import Gst, GLib, GObject
 from collections import namedtuple
 from queue import Queue
 import numpy as np
+import time
 
 PIPELINE_STR_DESCRIPTION = """
 filesrc location={filesrc} ! 
@@ -40,6 +41,10 @@ appsink name={smallres_sink_name}"""
 
 SinkNames = namedtuple("SinkNames", ["fullres", "smallres"])
 SINK_NAMES = SinkNames("fullres_sink", "smallres_sink")
+# SinkNames = namedtuple("SinkNames", ["fullres"])
+# SINK_NAMES = SinkNames("fullres_sink")
+
+fff = open("profiling_list.txt", "w")
 
 class GenericGstreamerPipeline:
     def __init__(self, pipeline, path, resized_width, resized_height) -> None:
@@ -77,6 +82,7 @@ class GenericGstreamerPipeline:
             width=resized_width,
             height=resized_height,
             smallres_sink_name=SINK_NAMES.smallres)
+        print(pipeline_target_str)
         self._gst_pipeline = Gst.parse_launch(pipeline_target_str)
         self._is_playing = False
 
@@ -85,6 +91,7 @@ class GenericGstreamerPipeline:
         sample = sink.emit("pull-sample")
         buffer = sample.get_buffer()
         # print(type(buffer))
+        print("OnB", sink_name, time.time(), file=fff)
         with self._data_ready_cv:
             self._buffers[sink_name].put(buffer.extract_dup(0, buffer.get_size()))
             self._data_ready_cv.notify()
@@ -122,6 +129,7 @@ class GenericGstreamerPipeline:
                 time.sleep(1)
             print("Stopping pipeline")
             loop.quit()
+            print("Pipeline stopped")
 
         loop = GLib.MainLoop()
         self._pipeline_thread = threading.Thread(None, pipeline_loop, args=(self._gst_pipeline, self._is_playing, loop))
@@ -143,6 +151,7 @@ class GenericGstreamerPipeline:
             print("Quiting read")
             return False, ()
 
+        print("Prep", time.time(), file=fff)
         result = [
             np.frombuffer(
                 self._buffers[queue_name].get(),
@@ -172,7 +181,8 @@ class GenericGstreamerCapturer(GenericGstreamerPipeline):
 if __name__ == "__main__":
     import cv2
 
-    capturer = GenericGstreamerCapturer("NO20230128-115104-009260F.MP4", 640, 480)
+    # capturer = GenericGstreamerCapturer("NO20230128-115104-009260F.MP4", 640, 480)
+    capturer = NvidiaAcceleratedCapturer("NO20230128-115104-009260F.MP4", 640, 480)
     capturer.start()
     counter = 0
     while True:
@@ -180,9 +190,11 @@ if __name__ == "__main__":
         if not ret:
             break
         fullres_frame, smallres_frame = frames
+        print("Rd", time.time(), file=fff)
         
-        cv2.imwrite(f"full_res/fimg{counter:04}.jpg", fullres_frame)
-        cv2.imwrite(f"small_res/simg{counter:04}.jpg", smallres_frame)
+        # cv2.imwrite(f"full_res/fimg{counter:04}.jpg", fullres_frame)
+        # cv2.imwrite(f"small_res/simg{counter:04}.jpg", smallres_frame)
         counter += 1
 
     capturer.stop()
+    fff.close()
