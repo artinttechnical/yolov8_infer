@@ -353,6 +353,7 @@ class TrtYOLO(object):
     def read_and_preprocess(self):
         next_timestamp = 0
         processing_timestamp = 0
+        self.cap.start()
         while True:
             start_time = time.time()
             ret, frames = self.cap.read()

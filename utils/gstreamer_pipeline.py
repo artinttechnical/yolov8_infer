@@ -28,11 +28,12 @@ queue name=read_queue !
 h265parse ! nvv4l2decoder ! 
 tee name=decoded ! 
 queue ! 
+nvvidconv ! video/x-raw, format=(string)BGRx !
 videoconvert ! video/x-raw,format=BGR ! 
 appsink name={fullres_sink_name} 
 decoded. ! 
 queue ! 
-nvvidconv ! video/x-raw,format=BGRx,width=(int){width},height=(int){height} !"
+nvvidconv ! video/x-raw,format=BGRx,width=(int){width},height=(int){height} ! 
 videoconvert ! video/x-raw,format=BGR ! 
 appsink name={smallres_sink_name}"""
 
@@ -70,13 +71,13 @@ class GenericGstreamerPipeline:
         Gst.init(None)
 
     def _create_and_set_pipeline(self, pipeline, path, resized_width, resized_height):
-        self._gst_pipeline = Gst.parse_launch(
-            pipeline.format(
+        pipeline_target_str = pipeline.format(
             filesrc=path, 
             fullres_sink_name=SINK_NAMES.fullres,
             width=resized_width,
             height=resized_height,
-            smallres_sink_name=SINK_NAMES.smallres))
+            smallres_sink_name=SINK_NAMES.smallres)
+        self._gst_pipeline = Gst.parse_launch(pipeline_target_str)
         self._is_playing = False
 
     def _on_buffer(self, sink, data) -> Gst.FlowReturn:
@@ -158,7 +159,7 @@ class GenericGstreamerPipeline:
 
 class NvidiaAcceleratedCapturer(GenericGstreamerPipeline):
     def __init__(self, path, resized_width, resized_height):
-        super.__init__(self, NVIDIA_ACCEL_STR_DESCRIPTION, path, resized_width, resized_height)
+        super().__init__(NVIDIA_ACCEL_STR_DESCRIPTION, path, resized_width, resized_height)
 
 class GenericGstreamerCapturer(GenericGstreamerPipeline):
     def __init__(self, path, resized_width, resized_height) -> None:
