@@ -96,6 +96,8 @@ class GenericGstreamerPipeline:
         if t == Gst.MessageType.EOS:
             print("Got EOS")
             self._is_playing[0] = False
+            with self._data_ready_cv:
+                self._data_ready_cv.notify()
             self._gst_pipeline.set_state(Gst.State.NULL)
         elif t == Gst.MessageType.ERROR:
             print("Got Error")
@@ -134,11 +136,12 @@ class GenericGstreamerPipeline:
 
     #interface part
     def read(self):
-        if not self._is_playing[0]:
-            return False, ()
         with self._data_ready_cv:
-            while any([q.empty() for q in self._buffers.values()]):
+            while self._is_playing[0] and any([q.empty() for q in self._buffers.values()]):
                 self._data_ready_cv.wait()
+        if not self._is_playing[0]:
+            print("Quiting read")
+            return False, ()
 
         result = [
             np.frombuffer(
