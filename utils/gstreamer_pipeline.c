@@ -28,14 +28,14 @@ tutorial_main (int argc, char *argv[])
     gst_init (&argc, &argv);
 
     char pipeline_target[4096];
-    printf("%s\n", PIPELINE_STR_DESCRIPTION);
-    snprintf(pipeline_target, PIPELINE_STR_DESCRIPTION, 
+    snprintf(pipeline_target, 4096, PIPELINE_STR_DESCRIPTION,
     "NO20230128-115104-009260F.MP4", "fullres_sink", 640, 480, "smallres_sink");
 
+    printf("%s\n", pipeline_target);
     /* Build the pipeline */
     pipeline =
         gst_parse_launch
-        ("playbin uri=NO20230128-115104-009260F.MP4",
+        ("playbin uri=file:///playground/NO20230128-115104-009260F.MP4",
         NULL);
 
     /* Start playing */
