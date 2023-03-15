@@ -9,15 +9,17 @@ char PIPELINE_STR_DESCRIPTION[] = ""
 "tee name=decoded ! "
 "queue ! "
 "videoconvert ! video/x-raw,format=BGR ! "
-"appsink name=%s ";
-// "decoded. ! "
-// "queue ! "
-// "videoscale ! video/x-raw,width=%d,height=%d ! "
-// "videoconvert ! video/x-raw,format=BGR ! "
-// "appsink name=%s";
+"appsink name=%s "
+"decoded. ! "
+"queue ! "
+"videoscale ! video/x-raw,width=%d,height=%d ! "
+"videoconvert ! video/x-raw,format=BGR ! "
+"appsink name=%s";
 
 char FULLRES_SINK_NAME[] = "fullres_sink";
 char SMALLRES_SINK_NAME[] = "smallres_sink";
+
+GstElement *fullres_appsink, *smallres_appsink;
 
 static GstFlowReturn new_sample (GstElement *sink, void* dummy) {
     GstSample *sample;
@@ -26,7 +28,11 @@ static GstFlowReturn new_sample (GstElement *sink, void* dummy) {
     g_signal_emit_by_name (sink, "pull-sample", &sample);
     if (sample) {
         /* The only thing we do in this example is print a * to indicate a received buffer */
-        g_print ("*");
+        if (sink == fullres_appsink) {
+            g_print ("*");
+        } else if (sink == smallres_appsink) {
+            g_print ("@");
+        }
         gst_sample_unref (sample);
         return GST_FLOW_OK;
     }
@@ -61,9 +67,10 @@ tutorial_main (int argc, char *argv[])
 {
     // CustomData data;
     GMainLoop *main_loop;
-    GstElement *pipeline, *fullres_appsink, *smallres_appsink;
+    GstElement *pipeline;//, *fullres_appsink, *smallres_appsink;
     GstBus *bus;
     GstMessage *msg;
+    int counters[] = {0, 0};
 
     /* Initialize GStreamer */
     gst_init (&argc, &argv);
@@ -71,8 +78,8 @@ tutorial_main (int argc, char *argv[])
     char pipeline_target[4096];
     snprintf(pipeline_target, 4096, PIPELINE_STR_DESCRIPTION,
     "NO20230128-115104-009260F.MP4", 
-    FULLRES_SINK_NAME //, 
-    // 640, 480, SMALLRES_SINK_NAME
+    FULLRES_SINK_NAME, 
+    640, 480, SMALLRES_SINK_NAME
     );
 
     printf("%s\n", pipeline_target);
@@ -83,8 +90,13 @@ tutorial_main (int argc, char *argv[])
         NULL);
 
     fullres_appsink = gst_bin_get_by_name(GST_BIN (pipeline), FULLRES_SINK_NAME);
+    smallres_appsink = gst_bin_get_by_name(GST_BIN (pipeline), SMALLRES_SINK_NAME);
     g_object_set (fullres_appsink, "emit-signals", TRUE, NULL);
+    g_object_set (smallres_appsink, "emit-signals", TRUE, NULL);
+    
     g_signal_connect (fullres_appsink, "new-sample", G_CALLBACK (new_sample), NULL);
+    g_signal_connect (smallres_appsink, "new-sample", G_CALLBACK (new_sample), NULL);
+
     gst_object_unref(fullres_appsink);
 
     /* Start playing */
