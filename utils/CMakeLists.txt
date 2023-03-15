@@ -19,4 +19,5 @@ target_include_directories(gstreamer_pipeline
     PUBLIC "/usr/lib/x86_64-linux-gnu/glib-2.0/include")
 target_link_libraries(gstreamer_pipeline 
     PUBLIC "gstreamer-1.0"
-    PUBLIC "glib-2.0")
+    PUBLIC "glib-2.0"
+    PUBLIC "gobject-2.0")
