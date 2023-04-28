@@ -24,10 +24,7 @@ def main(source_path, hal_name, testing=False):
         f"h265parse ! " \
         f"{decoding_hal[hal_name]['decoder']} ! " \
         f"tee name=decoded ! queue ! " \
-        f"{decoding_hal[hal_name]['resizer']} name=comp " \
-        f"sink_0::xpos=0 sink_0::ypos=0 sink_0::width=2592 sink_0::height=1944" \
-        f"sink_1::xpos=0 sink_1::ypos=1944 sink1::width=640 sink_1::height=480 ! " \
-        f"jpegenc ! " \
+        f"{decoding_hal[hal_name]['compositor']} name=comp sink_1::ypos=1944 ! " \
         f"appsink " \
         f"decoded. ! queue ! " \
         f"{decoding_hal[hal_name]['resizer']} ! video/x-raw,{decoding_hal[hal_name]['resize_format']}width=640,height=480  ! " \
@@ -61,7 +58,7 @@ def main(source_path, hal_name, testing=False):
         if 1 / 30 > (finish_time - start_time):
             time.sleep(1 / 30 - (finish_time - start_time))
         if testing:
-            open(f"full_res/img{frame_ctr:05}.jpg", "wb").write(frame)
+            cv2.imwrite(f"full_res/img{frame_ctr:05}.jpg", frame)
         frame_ctr += 1
     print("Total frames ", frame_ctr)
 
