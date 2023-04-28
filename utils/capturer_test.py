@@ -6,12 +6,14 @@ decoding_hal = {
     "basic": {
         "decoder": "libde265dec",
         "resizer":"videoscale",
-        "resize_format": ""
+        "resize_format": "",
+        "compositor": "compositor"
     },
     "nvidia": {
-        "decoder":"",
+        "decoder":"nvv4l2decoder",
         "resizer":"nvvidconv",
-        "resize_format": "BGRx"
+        "resize_format": "BGRx",
+        "compositor": "nvcompositor"
     }
 }
 
@@ -22,10 +24,15 @@ def main(source_path, hal_name, testing=False):
         f"h265parse ! " \
         f"{decoding_hal[hal_name]['decoder']} ! " \
         f"tee name=decoded ! queue ! " \
+        f"{decoding_hal[hal_name]['resizer']} name=comp " \
+        f"sink_0::xpos=0 sink_0::ypos=0 sink_0::width=2592 sink_0::height=1944" \
+        f"sink_1::xpos=0 sink_1::ypos=1944 sink1::width=640 sink_1::height=480 ! " \
+        f"jpegenc ! " \
+        f"appsink " \
+        f"decoded. ! queue ! " \
         f"{decoding_hal[hal_name]['resizer']} ! video/x-raw,{decoding_hal[hal_name]['resize_format']}width=640,height=480  ! " \
         f"videoconvert ! video/x-raw,format=BGR ! " \
-        f"jpegenc ! " \
-        f"appsink" 
+        f"comp. "
     
     print(gstreamer_line)
     cap = cv2.VideoCapture(gstreamer_line, cv2.CAP_GSTREAMER)
@@ -54,14 +61,14 @@ def main(source_path, hal_name, testing=False):
         if 1 / 30 > (finish_time - start_time):
             time.sleep(1 / 30 - (finish_time - start_time))
         if testing:
-            open(f"/home/artint/Projects/MachineLearning/Otus2022/Project/yolov8_infer/utils/full_res/img{frame_ctr:05}.jpg").write(frame)
+            open(f"full_res/img{frame_ctr:05}.jpg", "wb").write(frame)
         frame_ctr += 1
     print("Total frames ", frame_ctr)
 
 
 if __name__ == '__main__':
     main(
-        "/home/artint/Projects/MachineLearning/Otus2022/Project/MyRegDataset/NO20230128-115104-009260F.MP4",
+        "NO20230128-115104-009260F.MP4",
         "basic",
         True
     )
