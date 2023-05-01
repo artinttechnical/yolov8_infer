@@ -52,13 +52,16 @@ def main(source_path, hal_name, testing=False):
             """Detect objects in the input image."""
 
         finish_time = time.time()
+        orig_frame = frame[:1944, :, :]
+        resized_frame = frame[1944:, :640, :]
         print("Timings ", 1 / 30, finish_time - start_time)
         next_timestamp += 1 / 30
         processing_timestamp = finish_time - start_time
         if 1 / 30 > (finish_time - start_time):
             time.sleep(1 / 30 - (finish_time - start_time))
         if testing:
-            cv2.imwrite(f"full_res/img{frame_ctr:05}.jpg", frame)
+            cv2.imwrite(f"full_res/img_full{frame_ctr:05}.jpg", orig_frame)
+            cv2.imwrite(f"full_res/img_small{frame_ctr:05}.jpg", resized_frame)
         frame_ctr += 1
     print("Total frames ", frame_ctr)
 
