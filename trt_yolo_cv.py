@@ -13,6 +13,7 @@ import argparse
 
 import cv2
 import pycuda.autoinit  # This is needed for initializing CUDA driver
+import numpy as np
 
 from utils.yolo_classes import get_cls_dict
 from utils.visualization import BBoxVisualization
@@ -20,6 +21,7 @@ from utils.yolo_with_plugins import TrtYOLO
 
 from pathlib import Path
 
+import select
 
 import time
 
@@ -96,6 +98,40 @@ class MyCap:
 
     def release(self):
         pass
+
+class ExternalPipeCap:
+    def __init__(self, origsize_pipe_name, orig_image_size, 
+                 resized_pipe_name, resized_image_size):
+        self._origsize_pipe_name = origsize_pipe_name
+        self._orig_image_size = orig_image_size
+        self._resized_pipe_name = resized_pipe_name
+        self._resized_image_size = resized_image_size
+
+        self._origsize_pipe = open(origsize_pipe_name, "rb")
+        self._resized_pipe = open(resized_pipe_name, "rb")
+        self._filedescrs = {self._origsize_pipe.fileno(): self._origsize_pipe, 
+                            self._resized_pipe.fileno(): self._resized_pipe}
+        
+        self._epoll = select.epoll()
+        self._epoll.register(self._origsize_pipe.fileno(), select.EPOLLIN)
+        select.epoll.register(self._resized_pipe.fileno(), select.EPOLLIN)
+        self._buffers = {
+            self._origsize_pipe.fileno(): [b"", orig_image_size],
+            self._resized_pipe.fileno(): [b"", resized_image_size]
+        }
+
+    def read(self):
+        while len(self._buffers[self._origsize_pipe.fileno()][0]) < self._buffers[self._origsize_pipe.fileno()][1] and \
+            len(self._buffers[self._resized_pipe.fileno()][0]) < self._buffers[self._resized_pipe.fileno()][1]
+            events = select.epoll.poll(1)
+            for fileno, event in events:
+                assert(event == select.EPOLLIN)
+                if len(self._buffers[fileno][0]) < self._buffers[fileno][1]:
+                    recvbuf = self._filedescrs[fileno].read(min(4096, self._buffers[fileno][1] - len(self._buffers[fileno][0])))
+                    self._buffers[fileno] += recvbuf
+        return True, (np.frombuffer(self._buffers[self._origsize_pipe.fileno()][0]),
+                      np.frombuffer(self._buffers[self._resized_pipe.fileno()][0]))
+
 
 def main():
     args = parse_args()
