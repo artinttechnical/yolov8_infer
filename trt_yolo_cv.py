@@ -34,7 +34,7 @@ def parse_args():
         '-v', '--video', type=str, required=True,
         help='input video file name')
     parser.add_argument(
-        '-o', '--output', type=str, required=True,
+        '-o', '--output', type=str, required=False,
         help='output video file name')
     parser.add_argument(
         '-c', '--category_num', type=int, default=80,
@@ -120,6 +120,11 @@ class ExternalPipeCap:
             self._resized_pipe.fileno(): [b"", resized_image_size]
         }
 
+
+    def isOpened(self):
+        return True
+    
+
     def read(self):
         while len(self._buffers[self._origsize_pipe.fileno()][0]) < self._buffers[self._origsize_pipe.fileno()][1] and \
             len(self._buffers[self._resized_pipe.fileno()][0]) < self._buffers[self._resized_pipe.fileno()][1]
@@ -141,7 +146,11 @@ def main():
         raise SystemExit('ERROR: file (yolo/%s.trt) not found!' % args.model)
 
     # cap = cv2.VideoCapture(args.video)
-    cap = MyCap(args.video)
+    # cap = MyCap(args.video)
+    cap = ExternalPipeCap(args.video, 
+                          "/tmp/test_mem/big_file", (1920, 1080), 
+                          "/tmp/test_mem/small_file", (640, 360))
+    
     if not cap.isOpened():
         raise SystemExit('ERROR: failed to open the input video file!')
     frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
