@@ -52,7 +52,7 @@ def parse_args():
     return args
 
 
-def loop_and_detect(cap, trt_yolo, conf_th, writer):
+def loop_and_detect(cap, trt_yolo, conf_th,):
     """Continuously capture images from camera and do object detection.
 
     # Arguments
@@ -153,10 +153,11 @@ def main():
     
     if not cap.isOpened():
         raise SystemExit('ERROR: failed to open the input video file!')
-    frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
-    writer = cv2.VideoWriter(
-        args.output,
-        cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height))
+    #TODO - comment out
+    # frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
+    # writer = cv2.VideoWriter(
+    #     args.output,
+    #     cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height))
 
     if args.category_num == 155:
         prefix = "sign_images/RU_road_sign_"
@@ -170,17 +171,18 @@ def main():
     cls_dict = get_cls_dict(args.category_num, file_name)
 
     vis = BBoxVisualization(cls_dict, prefix, suffix)
+    trt_yolo = YoloDetector(cap, inferer, writer)
     trt_yolo = TrtYOLO(args.model, args.category_num, args.letter_box, conf_th=0.3, visualizer=vis, capturer=cap)
 
     total_start_time = time.time()
-    loop_and_detect(cap, trt_yolo, conf_th=0.3, writer=writer)
+    loop_and_detect(cap, trt_yolo, conf_th=0.3)
     total_end_time = time.time()
 
     print("Total FPS ", 1800 / (total_end_time - total_start_time))
     print("Infer FPS ", trt_yolo.infer_fps / (total_end_time - total_start_time))
     # print("Total FPS ", 600 / (total_end_time - total_start_time))
 
-    writer.release()
+    # writer.release()
     cap.release()
 
 
