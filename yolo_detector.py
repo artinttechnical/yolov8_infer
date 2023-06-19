@@ -47,6 +47,7 @@ class YoloDetector:
             #TODO - estimate probably move to other storage
             self._result_storer.store(resulting_frame)
 
+    # by default cuda inferer is working in main thread. Need more research how to do it correctly
     def _main_fn(self):
         self._preprocessing_thread.start()
         self._postprocessing_thread.start()

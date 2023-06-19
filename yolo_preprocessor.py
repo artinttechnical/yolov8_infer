@@ -1,62 +1,57 @@
 import numpy as np
 import cv2
 
-import time
+class LetterBox:
+    def __init__(self, target_img_size):
+        self._target_img_size = target_img_size
 
-def _preprocess_yolo(img, input_shape, letter_box=False):
-    """Preprocess an image before TRT YOLO inferencing.
-
-    # Args
-        img: int8 numpy array of shape (img_h, img_w, 3)
-        input_shape: a tuple of (H, W)
-        letter_box: boolean, specifies whether to keep aspect ratio and
-                    create a "letterboxed" image for inference
-
-    # Returns
-        preprocessed img: float32 numpy array of shape (3, H, W)
-    """
-    if letter_box:
+    def add_letterbox(self, resized):
         img_h, img_w, _ = img.shape
-        new_h, new_w = input_shape[0], input_shape[1]
+        new_h, new_w = self._target_img_size
         offset_h, offset_w = 0, 0
         if (new_w / img_w) <= (new_h / img_h):
             ratio = new_w / img_w
             new_h = int(img_h * ratio)
-            offset_h = (input_shape[0] - new_h) // 2
+            offset_h = (self._target_img_size[0] - new_h) // 2
         else:
             ratio = new_h / img_h
             new_w = int(img_w * ratio)
-            offset_w = (input_shape[1] - new_w) // 2
-        resized = cv2.resize(img, (new_w, new_h))
-        img = np.full((input_shape[0], input_shape[1], 3), 127, dtype=np.uint8)
+            offset_w = (self._target_img_size[1] - new_w) // 2
+        img = np.full((self._target_img_size[0], self._target_img_size[1], 3), 127, dtype=np.uint8)
         img[offset_h:(offset_h + new_h), offset_w:(offset_w + new_w), :] = resized
-    else:
-        img = cv2.resize(img, (input_shape[1], input_shape[0]))
+        return img
 
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = img.transpose((2, 0, 1)).astype(np.float32)
-    img /= 255.0
-    return img
 
-    def read_and_preprocess(self):
-        next_timestamp = 0
-        processing_timestamp = 0
-        while True:
-            start_time = time.time()
-            ret, (img_orig, img_resized) = self.cap.read()
-            if not ret:
-                self.stop = True
-                return
+class OpenCVInferencePreparer:
+    def __init__(self):
+        pass
 
-            if processing_timestamp - next_timestamp < 1 / 30:
-                """Detect objects in the input image."""
-                letter_box = self.letter_box # if letter_box is None else letter_box
-                img_resized = _preprocess_yolo(img_resized, self.input_shape, letter_box)
-                self.input_queue.put((img_orig, img_resized))
+    def prepare_for_infer(self, img):
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        img = img.transpose((2, 0, 1)).astype(np.float32)
+        img /= 255.0
+        return img
 
-            finish_time = time.time()
-            # print("Timings ", 1 / 30, finish_time - start_time)
-            next_timestamp += 1 / 30
-            processing_timestamp = finish_time - start_time
-            if 1 / 30 > (finish_time - start_time):
-                time.sleep(1 / 30 - (finish_time - start_time))
+class OpenCVCapturer:
+    def __init__(self, path, resized_size):
+        self._path = path
+        self._opencv_cap = cv2.VideoCapture(path)
+        self._resized_size = resized_size
+
+    def read(self):
+        _, frame = self._opencv_cap.read()
+        if frame:
+            resized_frame = cv2.resize(frame, (self._resized_size[1], self._resized_size[0]));
+            return (True, (frame, resized_frame))
+        else:
+            return False, (None, None)
+
+class OpenCVPreprocessor:
+    def __init__(self, strided_img_size):
+        self._letterboxer = LetterBox(strided_img_size)
+        self._inference_preparer = OpenCVInferencePreparer()
+
+    def transform(self, img):
+        img = self._letterboxer(img)
+        img = self._inference_preparer(img)
+        return img
