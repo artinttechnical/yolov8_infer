@@ -1,0 +1,29 @@
+разрешение для для инференса берётся из конфига
+
+DEFAULT_CFG_PATH = ROOT / 'yolo/cfg/default.yaml'
+DEFAULT_CFG_DICT = yaml_load(DEFAULT_CFG_PATH)
+DEFAULT_CFG = IterableSimpleNamespace(**DEFAULT_CFG_DICT)
+
+def __init__(self, cfg=DEFAULT_CFG, overrides=None, _callbacks=None):
+self.args = get_cfg(cfg, overrides)
+
+-> exec(cmd, globals, locals)
+  <string>(1)<module>()
+  /home/artint/Projects/MachineLearning/Otus2022/Project/experiments/opencv_yolo_detector.py(18)<module>()
+-> results = model(frame)
+  /home/artint/Projects/MachineLearning/Otus2022/Project/ultralytics/yolov8_venv/lib/python3.8/site-packages/ultralytics/yolo/engine/model.py(111)__call__()
+-> return self.predict(source, stream, **kwargs)
+  /home/artint/Projects/MachineLearning/Otus2022/Project/ultralytics/yolov8_venv/lib/python3.8/site-packages/torch/autograd/grad_mode.py(27)decorate_context()
+-> return func(*args, **kwargs)
+  /home/artint/Projects/MachineLearning/Otus2022/Project/ultralytics/yolov8_venv/lib/python3.8/site-packages/ultralytics/yolo/engine/model.py(249)predict()
+-> self.predictor = TASK_MAP[self.task][3](overrides=overrides, _callbacks=self.callbacks)
+> /home/artint/Projects/MachineLearning/Otus2022/Project/ultralytics/yolov8_venv/lib/python3.8/site-packages/ultralytics/yolo/engine/predictor.py(87)__init__()
+далее в BasePredictor.setup_source
+
+
+Stride сохранён в модели. Изначально это tensor[8, 16, 32] далее
+stride = max(int(model.stride.max()), 32)  # model stride (97 строка)
+а потом после 
+self.__dict__.update(locals())  # assign all variables to self (293 строка)
+Становится ровно 32
+
