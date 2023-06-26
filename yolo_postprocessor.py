@@ -1,7 +1,7 @@
 import numpy as np
-import cv2
+import cv2    
 
-def _nms_boxes(detections, nms_threshold):
+def _nms_boxes(self, detections, nms_threshold):
     """Apply the Non-Maximum Suppression (NMS) algorithm on the bounding
     boxes with their confidence scores and return an array with the
     indexes of the bounding boxes we want to keep.
@@ -42,24 +42,21 @@ def _nms_boxes(detections, nms_threshold):
     return keep
 
 
-def _postprocess_yolo(trt_outputs, category_num, img_w, img_h, conf_th, nms_threshold,
-                      input_shape, letter_box=False):
-    """Postprocess TensorRT outputs.
+class YoloPostprocessor:
+    def __init__(self, orig_image_shape, categories_num, object_probability, nms_threshold):
+        self._orig_image_shape = orig_image_shape
+        self._categories_num = categories_num
+        self._object_probability = object_probability
+        self._nms_threshold = nms_threshold
 
-    # Args
-        trt_outputs: a list of 2 or 3 tensors, where each tensor
-                    contains a multiple of 7 float32 numbers in
-                    the order of [x, y, w, h, box_confidence, class_id, class_prob]
-        conf_th: confidence threshold
-        letter_box: boolean, referring to _preprocess_yolo()
+    def process_raw_data(self, infer_results):
+        yoloscaled_detections = self._get_detections(infer_results)
+        fullscaled_detections = self._rescale_detections(yoloscaled_detections)
+        filtered_detections = self._nms_filter_detections(fullscaled_detections)
+        screen_clipped_detections = self._clip_to_screen(filtered_detections)
+        return screen_clipped_detections
 
-    # Returns
-        boxes, scores, classes (after NMS)
-    """
-    # filter low-conf detections and concatenate results of all yolo layers
-    # detections = []
-    # for o in trt_outputs:
-    if True:
+    def _get_detections(self, infer_results):
         o = trt_outputs
         dets = o.reshape((category_num + 4, -1))
         dets = dets.transpose(1, 0)
@@ -87,6 +84,7 @@ def _postprocess_yolo(trt_outputs, category_num, img_w, img_h, conf_th, nms_thre
     else:
         box_scores = detections[:, 4] * detections[:, 6]
 
+    def _rescale_detections(self, yoloscaled_detections):
         # scale x, y, w, h from [0, 1] to pixel values
         old_h, old_w = img_h, img_w
         offset_h, offset_w = 0, 0
@@ -111,6 +109,7 @@ def _postprocess_yolo(trt_outputs, category_num, img_w, img_h, conf_th, nms_thre
             nms_detections = np.concatenate(
                 [nms_detections, cls_detections[keep]], axis=0)
 
+    def _nms_filter_detections(self, detections):
         xx = nms_detections[:, 0].reshape(-1, 1)
         yy = nms_detections[:, 1].reshape(-1, 1)
         if letter_box:
@@ -124,22 +123,9 @@ def _postprocess_yolo(trt_outputs, category_num, img_w, img_h, conf_th, nms_thre
         classes = nms_detections[:, 5]
     return boxes, scores, classes
 
-class TrtYOLO(object):
-    def postprocess(self):
-        ctr = 0
-        window_name = 'signs_detection'
 
-        while True:
-
-            # clip x1, y1, x2, y2 within original image
+    def _clip_to_screen(self, boxes):
+        if 1:
             boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]], 0, frame.shape[1]-1)
             boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, frame.shape[0]-1)
-
-            frame = self.visualizer.draw_bboxes(frame, boxes, scores, classes)
-            # cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
-            cv2.imwrite(f"/home/artint/images_out/{ctr:05}.jpg", frame)
-            # cv2.imshow(window_name, frame)
-            # cv2.waitKey(1)
-            # self.result_queue.put(frame)
-            # writer.write(frame)
-        # return boxes, scores, classes
+        return boxes
