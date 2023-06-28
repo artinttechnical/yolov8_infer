@@ -49,12 +49,17 @@ class YoloDetector:
 
     # by default cuda inferer is working in main thread. Need more research how to do it correctly
     def _main_fn(self):
-        self._preprocessing_thread.start()
-        self._postprocessing_thread.start()
-
         while not self._global_stop and not self._infer_queue.empty():
             while not self._infer_queue.empty():
                 orig_img, ready_for_infer_img = self._infer_queue.get()
 
             raw_infer_results = self._inferer.infer(ready_for_infer_img)
             self._result_queue.put(orig_img, raw_infer_results)
+
+    def process(self):
+        self._global_stop = False
+
+        self._preprocessing_thread.start()
+        self._postprocessing_thread.start()
+
+        self._main_fn()
