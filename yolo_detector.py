@@ -28,14 +28,14 @@ class YoloDetector:
 
     def _preprocess_tf(self):
         while True:
-            ret, frames = self._cap.read()
+            ret, frames = self._capturer.read()
             if not ret:
                 self._global_stop = True
                 break
             
             orig_img, resized_imd = frames
             ready_for_infer_img = self._img_transformer.transform(resized_imd)
-            self._infer_queue.put(orig_img, ready_for_infer_img)
+            self._infer_queue.put((orig_img, ready_for_infer_img))
 
 
     def _postprocess_tf(self):
