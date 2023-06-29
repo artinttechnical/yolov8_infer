@@ -45,10 +45,6 @@ def parse_args():
 
 def main():
     args = parse_args()
-    if args.category_num <= 0:
-        raise SystemExit('ERROR: bad category_num (%d)!' % args.category_num)
-    if not os.path.isfile('yolo/%s.trt' % args.model):
-        raise SystemExit('ERROR: file (yolo/%s.trt) not found!' % args.model)
     
     capturer = OpenCVCapturer(
         "/home/artint/Projects/MachineLearning/Otus2022/Project/datasets/MyRegDataset/NO20230128-115104-009260F.MP4", 
