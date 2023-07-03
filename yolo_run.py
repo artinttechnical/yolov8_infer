@@ -60,7 +60,8 @@ def main():
         inferer,
         postprocessor,
         visualizer,
-        storer)
+        storer,
+        realtime=False)
 
     detector.process()
 

@@ -3,13 +3,14 @@ import threading
 import queue
 
 class YoloDetector:
-    def __init__(self, capturer, img_transformer, inferer, postprocessor, visualizer, result_storer):
+    def __init__(self, capturer, img_transformer, inferer, postprocessor, visualizer, result_storer, realtime):
         self._capturer = capturer
         self._img_transformer = img_transformer
         self._inferer = inferer
         self._postprocessor = postprocessor
         self._visualizer = visualizer
         self._result_storer = result_storer
+        self._realtime = realtime
 
         self._preprocessing_thread = threading.Thread(None, self._preprocess_tf)
         self._postprocessing_thread = threading.Thread(None, self._postprocess_tf)
@@ -49,9 +50,16 @@ class YoloDetector:
 
     # by default cuda inferer is working in main thread. Need more research how to do it correctly
     def _main_fn(self):
-        while not self._global_stop and not self._infer_queue.empty():
+        while not self._global_stop or not self._infer_queue.empty():
+            while self._infer_queue.empty(): pass
             while not self._infer_queue.empty():
                 orig_img, ready_for_infer_img = self._infer_queue.get()
+                # strange construction meaning: 
+                # if not realtime and even if preprocessor overtakes inferer then we quit after one iteration 
+                # and do not throw out frames
+                # if realtime - throw out others, get only the last collected element and use it
+                if not self._realtime:
+                    break
 
             raw_infer_results = self._inferer.infer(ready_for_infer_img)
             self._result_queue.put(orig_img, raw_infer_results)
