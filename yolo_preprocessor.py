@@ -30,6 +30,7 @@ class OpenCVInferencePreparer:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = img.transpose((2, 0, 1)).astype(np.float32)
         img /= 255.0
+        img = img[np.newaxis]
         return img
 
 class OpenCVCapturer:
