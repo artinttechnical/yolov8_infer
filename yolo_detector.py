@@ -61,7 +61,7 @@ class YoloDetector:
                 if not self._realtime:
                     break
 
-            raw_infer_results = self._inferer.infer(ready_for_infer_img)
+            raw_infer_results = self._inferer.detect(ready_for_infer_img)
             self._result_queue.put(orig_img, raw_infer_results)
 
     def process(self):

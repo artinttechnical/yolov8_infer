@@ -50,7 +50,7 @@ def main():
         "/home/artint/Projects/MachineLearning/Otus2022/Project/datasets/MyRegDataset/NO20230128-115104-009260F.MP4", 
         (640, 480))
     img_transformer = OpenCVPreprocessor((640, 480))
-    inferer = UltralyticsInferer("models/traffic_signs_best.pt")
+    inferer = UltralyticsInferer("/home/artint/Projects/MachineLearning/Otus2022/Project/models/signs_best_small.pt")
     postprocessor = YoloPostprocessor((2592 / 640, 1944 / 480), 155, 0.3, 0.5)
     visualizer = OpenCVImagesVisualizer({}, "", "")
     storer = OpencvJpegStorer("output")
