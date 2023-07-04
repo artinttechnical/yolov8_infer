@@ -27,4 +27,6 @@ class UltralyticsInferer:
         im = torch.from_numpy(infer_data)
         # img = im.to(self.device)
         # img = img.half() if self.model.fp16 else img.float()
-        return self._inferencing_model(im)
+        all_results = self._inferencing_model(im)
+        gathered_results = all_results[0].detach().cpu().numpy()
+        return gathered_results
