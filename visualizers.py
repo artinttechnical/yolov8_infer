@@ -5,7 +5,7 @@ class OpenCVImagesVisualizer:
     def __init__(self, classes, images_path, images_suffix):
         self._visualizer = BBoxVisualization(classes, images_path, images_suffix)
 
-    def visualize(self, orig_image, objects):
+    def draw_objects(self, orig_image, objects):
         boxes, scores, classes = objects
         self._visualizer.draw_bboxes(orig_image, boxes, scores, classes)
 

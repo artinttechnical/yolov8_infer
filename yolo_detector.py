@@ -40,7 +40,7 @@ class YoloDetector:
 
 
     def _postprocess_tf(self):
-        while not self._global_stop and not self._result_queue.empty():
+        while not self._global_stop or not self._result_queue.empty():
             orig_frame, raw_infer_results = self._result_queue.get()
             objects = self._postprocessor.process_raw_data(raw_infer_results)
             resulting_frame = self._visualizer.draw_objects(orig_frame, objects)
@@ -62,7 +62,7 @@ class YoloDetector:
                     break
 
             raw_infer_results = self._inferer.detect(ready_for_infer_img)
-            self._result_queue.put(orig_img, raw_infer_results)
+            self._result_queue.put((orig_img, raw_infer_results))
 
     def process(self):
         self._global_stop = False

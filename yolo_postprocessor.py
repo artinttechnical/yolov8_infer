@@ -3,7 +3,7 @@ import cv2
 
 OBJECT_COORDINATES_NUM = 4 #x, y, w, h
 
-def _nms_boxes(self, detections, nms_threshold):
+def _nms_boxes(detections, nms_threshold):
     """Apply the Non-Maximum Suppression (NMS) algorithm on the bounding
     boxes with their confidence scores and return an array with the
     indexes of the bounding boxes we want to keep.
@@ -116,7 +116,7 @@ class YoloPostprocessor:
         ww = nms_detections[:, 2].reshape(-1, 1)
         hh = nms_detections[:, 3].reshape(-1, 1)
         boxes = np.concatenate([xx, yy, xx+ww, yy+hh], axis=1)
-        boxes = boxes.astype(np.int)
+        boxes = boxes.astype(np.dtype(int))
         scores = nms_detections[:, 4] * nms_detections[:, 6]
         classes = nms_detections[:, 5]
         return boxes, scores, classes
