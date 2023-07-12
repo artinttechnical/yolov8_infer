@@ -1,9 +1,9 @@
-from utils.visualization import BBoxVisualization
+from utils.visualization import BBoxWithImagesVisualization
 import cv2
 
 class OpenCVImagesVisualizer:
-    def __init__(self, classes, images_path, images_suffix):
-        self._visualizer = BBoxVisualization(classes, images_path, images_suffix)
+    def __init__(self, classes_reader):
+        self._visualizer = BBoxWithImagesVisualization(classes_reader)
 
     def draw_objects(self, orig_image, objects):
         boxes, scores, classes = objects

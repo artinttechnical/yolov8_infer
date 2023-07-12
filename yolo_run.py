@@ -15,6 +15,7 @@ from yolo_preprocessor import OpenCVCapturer, OpenCVPreprocessor
 from ultralytics_inferer import UltralyticsInferer
 from yolo_postprocessor import YoloPostprocessor
 from visualizers import OpenCVImagesVisualizer, OpencvJpegStorer
+from text_file_names_images_in_folder import TextFileNamesImagesInFolder
 
 
 def parse_args():
@@ -46,13 +47,16 @@ def parse_args():
 def main():
     args = parse_args()
     
+    classes_data = TextFileNamesImagesInFolder("", "")
     capturer = OpenCVCapturer(
         "/home/artint/Projects/MachineLearning/Otus2022/Project/datasets/MyRegDataset/NO20230128-115104-009260F.MP4", 
         (640, 480))
     img_transformer = OpenCVPreprocessor((640, 480))
     inferer = UltralyticsInferer("/home/artint/Projects/MachineLearning/Otus2022/Project/models/signs_best_small.pt")
-    postprocessor = YoloPostprocessor((2592 / 640, 1944 / 480), 155, 0.3, 0.5)
-    visualizer = OpenCVImagesVisualizer({}, "", "")
+    postprocessor = YoloPostprocessor(
+        (2592 / 640, 1944 / 480), classes_data.get_classes_num(), 0.3, 0.5)
+    
+    visualizer = OpenCVImagesVisualizer(classes_data)
     storer = OpencvJpegStorer("output")
     detector = YoloDetector(
         capturer,
