@@ -7,12 +7,14 @@ class OpenCVImagesVisualizer:
 
     def draw_objects(self, orig_image, objects):
         boxes, scores, classes = objects
-        self._visualizer.draw_bboxes(orig_image, boxes, scores, classes)
+        return self._visualizer.draw_bboxes(orig_image, boxes, scores, classes)
 
 
 class OpencvJpegStorer:
     def __init__(self, starting_dir):
         self._starting_dir = starting_dir
+        self._frame_cntr = 0
 
     def store(self, frame):
-        cv2.imwrite(self._starting_dir / f"img{self._frame_cntr:05}.jpg", frame)
+        cv2.imwrite(str(self._starting_dir / f"img{self._frame_cntr:05}.jpg"), frame)
+        self._frame_cntr += 1

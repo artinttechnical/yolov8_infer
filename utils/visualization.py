@@ -92,20 +92,23 @@ class BBoxWithImagesVisualization():
         widths = 0
         height = -1
         ORIG_IMAGE_FRACTION = 8
+        resized_images = {}
 
-        for sign_image in sign_images.values():
+        for class_id, sign_image in sign_images.items():
             ratio = sign_image.shape[1] / (img.shape[1] / ORIG_IMAGE_FRACTION)
-            sign_images.append(
-              cv2.resize(
+            resized_image = cv2.resize(
                 sign_image, 
                 (
                   int(sign_image.shape[1] / ratio), 
-                  int(sign_image.shape[0] / ratio))))
-            height = max(height, sign_images[-1].shape[0])
-            widths += sign_images[-1].shape[1] + 20
+                  int(sign_image.shape[0] / ratio)
+                )
+              )
+            resized_images[class_id] = resized_image
+            height = max(height, resized_image.shape[0])
+            widths += resized_image.shape[1] + 20
 
         widths -= 20
-        return widths, height
+        return resized_images, widths, height
     
     def _calculate_starting_positions(self, widths, height, img):
         cur_sign_x = img.shape[1] / 2 - widths / 2
@@ -121,25 +124,36 @@ class BBoxWithImagesVisualization():
         
 
         sign_images = self._classes_container.get_images_for_classes(classes)
-        signs_width, signs_height = self._calculate_shape(sign_images, img)
-        cur_sign_x, sign_top = self._calculate_starting_positions(img, signs_width, signs_height, img)
+        resized_images, signs_width, signs_height = self._calculate_shape(sign_images, img)
+        cur_sign_x, sign_top = self._calculate_starting_positions(signs_width, signs_height, img)
 
         # print("Len ", len(confs))
         updated_image = img
-        for bbox, det_class in zip(boxes, classes):
-            updated_image = self._put_bounding_box(updated_image, bbox, self._class_names[det_class], self._colors[det_class])
-            sign_image = sign_images[det_class]
-            updated_image = self._put_sign_image_and_line(updated_image, sign_image, bbox, cur_sign_x, sign_top, self._colors[det_class])
+        for bbox, infer_class in zip(boxes, classes):
+            det_class = int(infer_class)
+            updated_image = self._put_bounding_box(
+                updated_image, 
+                bbox, 
+                self._classes_container.get_class_name(det_class), 
+                self._colors[det_class])
+            sign_image = resized_images[det_class]
+            updated_image = self._put_sign_image_and_line(
+                updated_image, 
+                sign_image, 
+                bbox, 
+                cur_sign_x, sign_top, 
+                self._colors[det_class])
             cur_sign_x += sign_image.shape[1] + 20
 
 
         return updated_image
 
-    def _put_bounding_box(self, img, bb, clas_name, color):
+    def _put_bounding_box(self, img, bb, class_name, color):
           x_min, y_min, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
           cv2.rectangle(img, (x_min, y_min), (x_max, y_max), color, 2)
+          return img
 
-    def _put_sign_image_and_line(img, sign_image, bb, cur_sign_x, sign_top, color):
+    def _put_sign_image_and_line(self, img, sign_image, bb, cur_sign_x, sign_top, color):
         x_min, _, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
         line_src = x_max if x_max < img.shape[1] / 2 else x_min
 

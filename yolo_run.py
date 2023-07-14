@@ -7,15 +7,16 @@ made by BigJoon (ref. jkjung-avt)
 """
 
 
-import os
 import argparse
+
+from pathlib import Path
 
 from yolo_detector import YoloDetector
 from yolo_preprocessor import OpenCVCapturer, OpenCVPreprocessor
 from ultralytics_inferer import UltralyticsInferer
 from yolo_postprocessor import YoloPostprocessor
 from visualizers import OpenCVImagesVisualizer, OpencvJpegStorer
-from text_file_names_images_in_folder import TextFileNamesImagesInFolder
+from class_images_in_folder import ClassImagesInFolder
 
 
 def parse_args():
@@ -47,7 +48,15 @@ def parse_args():
 def main():
     args = parse_args()
     
-    classes_data = TextFileNamesImagesInFolder("", "")
+    classes_data = ClassImagesInFolder(
+        ClassImagesInFolder.generate_from_textfile(
+            "/home/artint/Projects/MachineLearning/Otus2022/Project/blobs/labels.txt",
+            Path("/home/artint/Projects/MachineLearning/Otus2022/Project/blobs/sign_images"),
+            "RU_road_sign",
+            ".svg.png"
+        )
+    )
+
     capturer = OpenCVCapturer(
         "/home/artint/Projects/MachineLearning/Otus2022/Project/datasets/MyRegDataset/NO20230128-115104-009260F.MP4", 
         (640, 480))
@@ -57,7 +66,7 @@ def main():
         (2592 / 640, 1944 / 480), classes_data.get_classes_num(), 0.3, 0.5)
     
     visualizer = OpenCVImagesVisualizer(classes_data)
-    storer = OpencvJpegStorer("output")
+    storer = OpencvJpegStorer(Path("output"))
     detector = YoloDetector(
         capturer,
         img_transformer,

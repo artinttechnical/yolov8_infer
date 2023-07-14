@@ -51,6 +51,9 @@ class YoloPostprocessor:
         self._object_probability = object_probability
         self._nms_threshold = nms_threshold
 
+    def _generate_empty_detections(self):
+        return ([], [], [])
+
     def process_raw_data(self, infer_results):
         yoloscaled_detections = self._get_detections(infer_results)
         if len(yoloscaled_detections) == 0:
