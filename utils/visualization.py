@@ -88,13 +88,14 @@ class BBoxWithImagesVisualization():
         self._classes_container = classes_container
         self._colors = gen_colors(classes_container.get_classes_num())
 
-    def _calculate_shape(self, sign_images, img):
+    def _calculate_shape(self, classes, sign_images, img):
         widths = 0
         height = -1
         ORIG_IMAGE_FRACTION = 8
         resized_images = {}
 
-        for class_id, sign_image in sign_images.items():
+        for class_id in classes:
+            sign_image = sign_images[class_id]
             ratio = sign_image.shape[1] / (img.shape[1] / ORIG_IMAGE_FRACTION)
             resized_image = cv2.resize(
                 sign_image, 
@@ -124,7 +125,7 @@ class BBoxWithImagesVisualization():
         
 
         sign_images = self._classes_container.get_images_for_classes(classes)
-        resized_images, signs_width, signs_height = self._calculate_shape(sign_images, img)
+        resized_images, signs_width, signs_height = self._calculate_shape(classes, sign_images, img)
         cur_sign_x, sign_top = self._calculate_starting_positions(signs_width, signs_height, img)
 
         # print("Len ", len(confs))
