@@ -15,7 +15,8 @@ class YoloDetector:
         self._preprocessing_thread = threading.Thread(None, self._preprocess_tf)
         self._postprocessing_thread = threading.Thread(None, self._postprocess_tf)
 
-        self._global_stop = False
+        self._input_stop = False
+        self._infer_stop = False
 
         #magic numbers approximately correspond to smth 
         # self._infer_queue = collections.deque(maxlen=20)
@@ -23,7 +24,7 @@ class YoloDetector:
         self._infer_queue = queue.Queue(maxsize=20)
         self._result_queue = queue.Queue(maxsize=10)
 
-    def __del__(self):
+    def done(self):
         self._preprocessing_thread.join()
         self._postprocessing_thread.join()
 
@@ -31,7 +32,7 @@ class YoloDetector:
         while True:
             ret, frames = self._capturer.read()
             if not ret:
-                self._global_stop = True
+                self._input_stop = True
                 break
             
             orig_img, resized_imd = frames
@@ -40,7 +41,7 @@ class YoloDetector:
 
 
     def _postprocess_tf(self):
-        while not self._global_stop or not self._result_queue.empty():
+        while not self._infer_stop or not self._result_queue.empty():
             orig_frame, raw_infer_results = self._result_queue.get()
             objects = self._postprocessor.process_raw_data(raw_infer_results)
             resulting_frame = self._visualizer.draw_objects(orig_frame, objects)
@@ -50,7 +51,7 @@ class YoloDetector:
 
     # by default cuda inferer is working in main thread. Need more research how to do it correctly
     def _main_fn(self):
-        while not self._global_stop or not self._infer_queue.empty():
+        while not self._input_stop or not self._infer_queue.empty():
             while self._infer_queue.empty(): pass
             while not self._infer_queue.empty():
                 orig_img, ready_for_infer_img = self._infer_queue.get()
@@ -63,9 +64,10 @@ class YoloDetector:
 
             raw_infer_results = self._inferer.detect(ready_for_infer_img)
             self._result_queue.put((orig_img, raw_infer_results))
+        self._infer_stop = True
 
     def process(self):
-        self._global_stop = False
+        self._input_stop = False
 
         self._preprocessing_thread.start()
         self._postprocessing_thread.start()

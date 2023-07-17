@@ -40,8 +40,8 @@ class OpenCVCapturer:
         self._resized_size = resized_size
 
     def read(self):
-        _, frame = self._opencv_cap.read()
-        if 1:
+        ret, frame = self._opencv_cap.read()
+        if ret:
             resized_frame = cv2.resize(frame, (self._resized_size[0], self._resized_size[1]));
             return (True, (frame, resized_frame))
         else:

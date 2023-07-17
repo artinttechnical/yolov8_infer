@@ -76,6 +76,49 @@ def draw_boxed_text(img, text, topleft, color):
     cv2.addWeighted(patch[0:h, 0:w, :], ALPHA, roi, 1 - ALPHA, 0, roi)
     return img
 
+class BBoxWithTextVisualization():
+    """BBoxVisualization class implements nice drawing of boudning boxes.
+
+    # Arguments
+      cls_dict: a dictionary used to translate class id to its name.
+    """
+
+    def __init__(self, classes_container):
+        self._classes_container = classes_container
+        self._colors = gen_colors(classes_container.get_classes_num())
+
+    #TODO - simple copypaste, make inheritance
+    def _put_bounding_box(self, img, bb, class_name, color):
+        x_min, y_min, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
+        cv2.rectangle(img, (x_min, y_min), (x_max, y_max), color, 2)
+        return img
+
+
+    def draw_bboxes(self, img, boxes, confs, classes):
+        updated_image = img
+        for bbox, cf, infer_class in zip(boxes, confs, classes):
+            det_class = int(infer_class)
+            updated_image = self._put_bounding_box(
+                updated_image, 
+                bbox, 
+                self._classes_container.get_class_name(det_class), 
+                self._colors[det_class])
+            
+            x_min, y_min, _, _ = bbox[0], bbox[1], bbox[2], bbox[3]
+            color = self._colors[det_class]
+            txt_loc = (max(x_min+2, 0), max(y_min+2, 0))
+            cls_name = self._classes_container.get_class_name(det_class)
+            txt = '{} {:.2f}'.format(cls_name, cf)
+            img = draw_boxed_text(img, txt, txt_loc, color)
+
+            updated_image = draw_boxed_text(
+              updated_image,
+              self._classes_container.get_class_name(det_class),
+              txt_loc,
+              color
+            )
+        return updated_image
+
 
 class BBoxWithImagesVisualization():
     """BBoxVisualization class implements nice drawing of boudning boxes.

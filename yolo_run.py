@@ -15,7 +15,7 @@ from yolo_detector import YoloDetector
 from yolo_preprocessor import OpenCVCapturer, OpenCVPreprocessor
 from ultralytics_inferer import UltralyticsInferer
 from yolo_postprocessor import YoloPostprocessor
-from visualizers import OpenCVImagesVisualizer, OpencvJpegStorer
+from visualizers import OpenCVImagesVisualizer, OpencvJpegStorer, DummyStorer
 from class_images_in_folder import ClassImagesInFolder
 
 
@@ -77,6 +77,10 @@ def main():
         realtime=False)
 
     detector.process()
+
+    #seems that for some reason destructor is called from subthread and not main
+    #so joining from self thread leads to exception
+    detector.done()
 
 
 if __name__ == '__main__':
