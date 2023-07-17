@@ -76,98 +76,139 @@ def draw_boxed_text(img, text, topleft, color):
     cv2.addWeighted(patch[0:h, 0:w, :], ALPHA, roi, 1 - ALPHA, 0, roi)
     return img
 
-
-class BBoxVisualization():
+class BBoxWithTextVisualization():
     """BBoxVisualization class implements nice drawing of boudning boxes.
 
     # Arguments
       cls_dict: a dictionary used to translate class id to its name.
     """
 
-    def __init__(self, cls_dict, images_path, images_suffix):
-        self.cls_dict = cls_dict
-        self.images_path = images_path
-        self.images_suffix = images_suffix
-        self.colors = gen_colors(len(cls_dict))
+    def __init__(self, classes_container):
+        self._classes_container = classes_container
+        self._colors = gen_colors(classes_container.get_classes_num())
 
-    def draw_bboxes(self, img, boxes, confs, clss):
-        """Draw detected bounding boxes on the original image."""
-        sign_images = []
-        widths = 0
-        height = 0
-        ORIG_IMAGE_FRACTION = 8
+    #TODO - simple copypaste, make inheritance
+    def _put_bounding_box(self, img, bb, class_name, color):
+        x_min, y_min, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
+        cv2.rectangle(img, (x_min, y_min), (x_max, y_max), color, 2)
+        return img
 
-        # print("Classes ", clss)
-        for sep_clss in clss:
-            # sign_image = cv2.imread(f"sign_images/RU_road_sign_{self.cls_dict[sep_clss]}.svg.png", cv2.IMREAD_UNCHANGED)
-            # sign_image = cv2.imread(f"sign_images/RU_road_sign_{self.cls_dict[sep_clss]}.svg.png")
+
+    def draw_bboxes(self, img, boxes, confs, classes):
+        updated_image = img
+        for bbox, cf, infer_class in zip(boxes, confs, classes):
+            det_class = int(infer_class)
+            updated_image = self._put_bounding_box(
+                updated_image, 
+                bbox, 
+                self._classes_container.get_class_name(det_class), 
+                self._colors[det_class])
             
-            sign_image = cv2.imread(f"{self.images_path}{self.cls_dict[sep_clss]}{self.images_suffix}")
+            x_min, y_min, _, _ = bbox[0], bbox[1], bbox[2], bbox[3]
+            color = self._colors[det_class]
+            txt_loc = (max(x_min+2, 0), max(y_min+2, 0))
+            cls_name = self._classes_container.get_class_name(det_class)
+            txt = '{} {:.2f}'.format(cls_name, cf)
+            img = draw_boxed_text(img, txt, txt_loc, color)
+
+            updated_image = draw_boxed_text(
+              updated_image,
+              self._classes_container.get_class_name(det_class),
+              txt_loc,
+              color
+            )
+        return updated_image
+
+
+class BBoxWithImagesVisualization():
+    """BBoxVisualization class implements nice drawing of boudning boxes.
+
+    # Arguments
+      cls_dict: a dictionary used to translate class id to its name.
+    """
+
+    def __init__(self, classes_container):
+        self._classes_container = classes_container
+        self._colors = gen_colors(classes_container.get_classes_num())
+
+    def _calculate_shape(self, classes, sign_images, img):
+        widths = 0
+        height = -1
+        ORIG_IMAGE_FRACTION = 8
+        resized_images = {}
+
+        for class_id in classes:
+            sign_image = sign_images[class_id]
             ratio = sign_image.shape[1] / (img.shape[1] / ORIG_IMAGE_FRACTION)
-            sign_images.append(
-              cv2.resize(
+            resized_image = cv2.resize(
                 sign_image, 
                 (
                   int(sign_image.shape[1] / ratio), 
-                  int(sign_image.shape[0] / ratio))))
-            height = max(height, sign_images[-1].shape[0])
-            widths += sign_images[-1].shape[1] + 20
+                  int(sign_image.shape[0] / ratio)
+                )
+              )
+            resized_images[class_id] = resized_image
+            height = max(height, resized_image.shape[0])
+            widths += resized_image.shape[1] + 20
+
         widths -= 20
-            
+        return resized_images, widths, height
+    
+    def _calculate_starting_positions(self, widths, height, img):
         cur_sign_x = img.shape[1] / 2 - widths / 2
         if cur_sign_x < 0:
           cur_sign_x = 0
 
         sign_top = img.shape[0] - height - 10
+        return cur_sign_x, sign_top
+
+    def draw_bboxes(self, img, boxes, confs, classes):
+        """Draw detected bounding boxes on the original image."""
+        sign_images = []
+        
+
+        sign_images = self._classes_container.get_images_for_classes(classes)
+        resized_images, signs_width, signs_height = self._calculate_shape(classes, sign_images, img)
+        cur_sign_x, sign_top = self._calculate_starting_positions(signs_width, signs_height, img)
+
         # print("Len ", len(confs))
-        for bb, cf, cl, sign_image in zip(boxes, confs, clss, sign_images):
-            # print("Detect ", clss)
-            cl = int(cl)
-            x_min, y_min, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
-            color = self.colors[cl]
-            cv2.rectangle(img, (x_min, y_min), (x_max, y_max), color, 2)
-            # txt_loc = (max(x_min+2, 0), max(y_min+2, 0))
-            cls_name = self.cls_dict.get(cl, 'CLS{}'.format(cl))
-            # txt = '{} {:.2f}'.format(cls_name, cf)
-
-            line_src = x_max if x_max < img.shape[1] / 2 else x_min
-            
-            cv2.line(img, (line_src, y_max), (int(cur_sign_x + sign_image.shape[1] / 2), sign_top), color, 2)
-            cv2.rectangle(
-              img, 
-              (int(cur_sign_x) - 2, sign_top - 2), 
-              (int(cur_sign_x) + sign_image.shape[1] + 2, sign_top + sign_image.shape[0] + 2), 
-              color, 2)
-
-
-            if False:
-              alpha_s = sign_image[:, :, 3] / 255.0
-              alpha_l = 1.0 - alpha_s
-
-              for channel in range(img.shape[2] - 1):
-                  print(img.shape, channel, alpha_l.shape)
-                  replaced_piece = img[
-                    sign_top:sign_top + sign_image.shape[0], 
-                    int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1], 
-                    channel].astype(np.float)
-                  replaced_piece *= alpha_l
-                  alpha_correction = alpha_s * sign_image[:,:,channel]
-                  replaced_piece += alpha_correction
-                  img[
-                    sign_top:sign_top + sign_image.shape[0], 
-                    int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1], 
-                    channel] = (replaced_piece * 255).astype(np.uint8)
-            else:
-              pass
-              try:
-                img[
-                    sign_top:sign_top + sign_image.shape[0], 
-                    int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1]] = sign_image
-              except:
-                print("Bad ", self.cls_dict[sep_clss])
-                print(sign_top, cur_sign_x, sign_image.shape)
-                
+        updated_image = img
+        for bbox, infer_class in zip(boxes, classes):
+            det_class = int(infer_class)
+            updated_image = self._put_bounding_box(
+                updated_image, 
+                bbox, 
+                self._classes_container.get_class_name(det_class), 
+                self._colors[det_class])
+            sign_image = resized_images[det_class]
+            updated_image = self._put_sign_image_and_line(
+                updated_image, 
+                sign_image, 
+                bbox, 
+                cur_sign_x, sign_top, 
+                self._colors[det_class])
             cur_sign_x += sign_image.shape[1] + 20
-          
-            # img = draw_boxed_text(img, txt, txt_loc, color)
+
+
+        return updated_image
+
+    def _put_bounding_box(self, img, bb, class_name, color):
+          x_min, y_min, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
+          cv2.rectangle(img, (x_min, y_min), (x_max, y_max), color, 2)
+          return img
+
+    def _put_sign_image_and_line(self, img, sign_image, bb, cur_sign_x, sign_top, color):
+        x_min, _, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
+        line_src = x_max if x_max < img.shape[1] / 2 else x_min
+
+        cv2.line(img, (line_src, y_max), (int(cur_sign_x + sign_image.shape[1] / 2), sign_top), color, 2)
+        cv2.rectangle(
+          img, 
+          (int(cur_sign_x) - 2, sign_top - 2), 
+          (int(cur_sign_x) + sign_image.shape[1] + 2, sign_top + sign_image.shape[0] + 2), 
+          color, 2)
+
+        img[
+              sign_top:sign_top + sign_image.shape[0], 
+              int(cur_sign_x):int(cur_sign_x) + sign_image.shape[1]] = sign_image
         return img

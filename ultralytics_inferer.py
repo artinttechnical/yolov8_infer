@@ -8,12 +8,15 @@ class UltralyticsInferer:
     def __init__(self, model_path: Path):
         # weights = ultralytics.nn.tasks.torch_safe_load(model_path)
         weights_with_extra_info, _ = ultralytics.nn.tasks.attempt_load_one_weight(model_path)
+        #variables explaining not so better named parameters
         use_opencv_dnn = False
+        yaml_path_with_class_names = None
+
         self._inferencing_model = ultralytics.nn.autobackend.AutoBackend(
             weights_with_extra_info,
             device="cpu",
             dnn=use_opencv_dnn,
-            data=self.args.data,
+            data=yaml_path_with_class_names,
             fp16=False,
             fuse=True,
             verbose=False)
@@ -24,4 +27,6 @@ class UltralyticsInferer:
         im = torch.from_numpy(infer_data)
         # img = im.to(self.device)
         # img = img.half() if self.model.fp16 else img.float()
-        return self._inferencing_model(im)
+        all_results = self._inferencing_model(im)
+        gathered_results = all_results[0].detach().cpu().numpy()
+        return gathered_results
