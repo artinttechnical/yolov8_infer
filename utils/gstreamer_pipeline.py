@@ -150,7 +150,7 @@ class GstreamerReader:
     def read(self):
         ret, frame = self._capturer.read()
         if ret:
-            resized_frame = cv2.resize(frame[0], 640, 480);
+            resized_frame = cv2.resize(frame[0], (640, 480));
             return (True, (frame, resized_frame))
         else:
             return False, (None, None)

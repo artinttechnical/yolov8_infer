@@ -19,6 +19,8 @@ from visualizers import OpenCVImagesVisualizer, OpencvJpegStorer, DummyStorer
 from class_images_in_folder import ClassImagesInFolder
 
 
+from utils.gstreamer_pipeline import GstreamerReader
+
 def parse_args():
     """Parse input arguments."""
     desc = ('Run the TensorRT optimized object detecion model on an input '
@@ -57,9 +59,13 @@ def main():
         )
     )
 
-    capturer = OpenCVCapturer(
-        "/home/artint/Projects/MachineLearning/Otus2022/Project/datasets/MyRegDataset/NO20230128-115104-009260F.MP4", 
-        (640, 480))
+    if 0:
+        capturer = OpenCVCapturer(
+            "/home/artint/Projects/MachineLearning/Otus2022/Project/datasets/MyRegDataset/NO20230128-115104-009260F.MP4", 
+            (640, 480))
+    else:
+        capturer = GstreamerReader(
+            "/home/artint/Projects/MachineLearning/Otus2022/Project/datasets/MyRegDataset/NO20230128-115104-009260F.MP4")
     img_transformer = OpenCVPreprocessor((640, 480))
     inferer = UltralyticsInferer("/home/artint/Projects/MachineLearning/Otus2022/Project/models/signs_best_small.pt")
     postprocessor = YoloPostprocessor(
