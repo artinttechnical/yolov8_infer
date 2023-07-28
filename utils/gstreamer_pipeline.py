@@ -5,6 +5,8 @@ from gi.repository import Gst, GLib, GObject
 from collections import namedtuple
 from queue import Queue
 import numpy as np
+import cv2
+import statistics
 
 PIPELINE_STR_DESCRIPTION = """
 filesrc location={filesrc} ! 
@@ -60,9 +62,10 @@ class HarcodedGstreamerPipeline:
             PIPELINE_STR_DESCRIPTION.format(
             filesrc=path, 
             fullres_sink_name=SINK_NAMES.fullres,
-            width=resized_width,
-            height=resized_height,
-            smallres_sink_name=SINK_NAMES.smallres))
+            # width=resized_width,
+            # height=resized_height,
+            # smallres_sink_name=SINK_NAMES.smallres
+            ))
         self._is_playing = False
 
     def _on_buffer(self, sink, data) -> Gst.FlowReturn:
@@ -82,6 +85,8 @@ class HarcodedGstreamerPipeline:
             print("Got EOS")
             self._is_playing[0] = False
             self._gst_pipeline.set_state(Gst.State.NULL)
+            with self._data_ready_cv:
+                self._data_ready_cv.notify()
         elif t == Gst.MessageType.ERROR:
             print("Got Error")
             self._is_playing[0] = False
@@ -105,6 +110,7 @@ class HarcodedGstreamerPipeline:
                 time.sleep(1)
             print("Stopping pipeline")
             loop.quit()
+            print("Pipeline stopped")
 
         loop = GLib.MainLoop()
         self._pipeline_thread = threading.Thread(None, pipeline_loop, args=(self._gst_pipeline, self._is_playing, loop))
@@ -120,10 +126,15 @@ class HarcodedGstreamerPipeline:
     #interface part
     def read(self):
         if not self._is_playing[0]:
+            print("read EOF return - 1")
             return False, ()
         with self._data_ready_cv:
-            while any([q.empty() for q in self._buffers.values()]):
+            while self._is_playing[0] and any([q.empty() for q in self._buffers.values()]):
                 self._data_ready_cv.wait()
+
+        if not self._is_playing[0]:
+            print("read EOF return - 2")
+            return False, ()
 
         result = [
             np.frombuffer(
@@ -142,16 +153,36 @@ class HarcodedGstreamerPipeline:
     def release(self):
         pass
 
+class OpenCVReader:
+    def __init__(self, path):
+        self._path = path
+        self._opencv_cap = cv2.VideoCapture(path)
+
+    def start(self):
+        pass
+
+    def read(self):
+        ret, frame = self._opencv_cap.read()
+        if ret:
+            return (True, (frame))
+        else:
+            return False, (None, None)
+        
+    def stop(self):
+        pass
+
+
+
 class GstreamerReader:
     def __init__(self, path):
-        self._capturer = HarcodedGstreamerPipeline(path) #, 2592x1944)
+        self._capturer = HarcodedGstreamerPipeline(path, 0, 0) #, 2592x1944)
         self._capturer.start()
 
     def read(self):
         ret, frame = self._capturer.read()
         if ret:
             resized_frame = cv2.resize(frame[0], (640, 480));
-            return (True, (frame, resized_frame))
+            return (True, (frame[0], resized_frame))
         else:
             return False, (None, None)
 
@@ -162,17 +193,31 @@ class GstreamerReader:
 if __name__ == "__main__":
     import cv2
 
-    capturer = HarcodedGstreamerPipeline("NO20230128-115104-009260F.MP4", 640, 480)
+    # capturer = HarcodedGstreamerPipeline("NO20230128-115104-009260F.MP4", 640, 480)
+    capturer = OpenCVReader("NO20230128-115104-009260F.MP4")
     capturer.start()
     counter = 0
+    times = []
     while True:
+        start_t = time.time()
         ret, frames = capturer.read()
         if not ret:
             break
-        fullres_frame, smallres_frame = frames
+        # fullres_frame, smallres_frame = frames
+
+        end_t = time.time()
+        times.append(end_t - start_t)
+
+        frames
+
         
-        cv2.imwrite(f"full_res/fimg{counter:04}.jpg", fullres_frame)
-        cv2.imwrite(f"small_res/simg{counter:04}.jpg", smallres_frame)
+            
+        # cv2.imwrite(f"full_res/fimg{counter:04}.jpg", fullres_frame)
+        # cv2.imwrite(f"small_res/simg{counter:04}.jpg", smallres_frame)
         counter += 1
 
     capturer.stop()
+    tm_mean = statistics.mean(times)
+    quartiles = statistics.quantiles(times)
+    perc = statistics.quantiles(times, n=100)
+    print(f"Mean {tm_mean}, deviation {statistics.pstdev(times, tm_mean)}, 25-75 {quartiles[0]} - {quartiles[-1]}, 99-perc {perc[-1]}")
