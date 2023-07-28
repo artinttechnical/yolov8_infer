@@ -8,6 +8,8 @@ import numpy as np
 import cv2
 import statistics
 
+import zlib
+
 PIPELINE_STR_DESCRIPTION = """
 filesrc location={filesrc} ! 
 qtdemux ! 
@@ -193,11 +195,12 @@ class GstreamerReader:
 if __name__ == "__main__":
     import cv2
 
-    # capturer = HarcodedGstreamerPipeline("NO20230128-115104-009260F.MP4", 640, 480)
-    capturer = OpenCVReader("NO20230128-115104-009260F.MP4")
+    capturer = HarcodedGstreamerPipeline("NO20230128-115104-009260F.MP4", 640, 480)
+    # capturer = OpenCVReader("NO20230128-115104-009260F.MP4")
     capturer.start()
     counter = 0
     times = []
+    crcs = []
     while True:
         start_t = time.time()
         ret, frames = capturer.read()
@@ -208,10 +211,8 @@ if __name__ == "__main__":
         end_t = time.time()
         times.append(end_t - start_t)
 
-        frames
+        crcs.append(zlib.crc32(frames[0]))
 
-        
-            
         # cv2.imwrite(f"full_res/fimg{counter:04}.jpg", fullres_frame)
         # cv2.imwrite(f"small_res/simg{counter:04}.jpg", smallres_frame)
         counter += 1
@@ -221,3 +222,4 @@ if __name__ == "__main__":
     quartiles = statistics.quantiles(times)
     perc = statistics.quantiles(times, n=100)
     print(f"Mean {tm_mean}, deviation {statistics.pstdev(times, tm_mean)}, 25-75 {quartiles[0]} - {quartiles[-1]}, 99-perc {perc[-1]}")
+    print("Dummy sum ", sum(crcs))
